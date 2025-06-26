@@ -1,0 +1,46 @@
+{
+  "name": "mikrotik-api",
+  "version": "1.0.0",
+  "description": "API completa para gerenciamento de MikroTik RouterOS via node-routeros",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js",
+    "dev": "nodemon app.js",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix"
+  },
+  "keywords": [
+    "mikrotik",
+    "routeros",
+    "hotspot",
+    "scripts",
+    "schedules",
+    "api",
+    "express",
+    "nodejs"
+  ],
+  "author": "MikroTik API Team",
+  "license": "MIT",
+  "dependencies": {
+    "express": "^4.18.2",
+    "node-routeros": "^2.1.2",
+    "cors": "^2.8.5"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2",
+    "eslint": "^8.56.0"
+  },
+  "engines": {
+    "node": ">=16.0.0",
+    "npm": ">=8.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/seu-usuario/mikrotik-api.git"
+  },
+  "bugs": {
+    "url": "https://github.com/seu-usuario/mikrotik-api/issues"
+  },
+  "homepage": "https://github.com/seu-usuario/mikrotik-api#readme"
+}

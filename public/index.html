@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MikroTik API Interface</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="css/style.css" rel="stylesheet">
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="#">
+                <i class="fas fa-router me-2"></i>
+                MikroTik API Interface
+            </a>
+            <div class="navbar-nav ms-auto">
+                <span class="navbar-text" id="connectionStatus">
+                    <i class="fas fa-circle text-danger me-2"></i>
+                    Desconectado
+                </span>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <!-- Connection Panel -->
+        <div class="card mb-4">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">
+                    <i class="fas fa-plug me-2"></i>
+                    Configuração de Conexão
+                </h5>
+            </div>
+            <div class="card-body">
+                <form id="connectionForm">
+                    <div class="row">
+                        <div class="col-md-3">
+                            <div class="mb-3">
+                                <label for="host" class="form-label">IP do MikroTik</label>
+                                <input type="text" class="form-control" id="host" placeholder="192.168.1.1" required>
+                            </div>
+                        </div>
+                        <div class="col-md-2">
+                            <div class="mb-3">
+                                <label for="port" class="form-label">Porta</label>
+                                <input type="number" class="form-control" id="port" placeholder="8728" value="8728">
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="mb-3">
+                                <label for="username" class="form-label">Usuário</label>
+                                <input type="text" class="form-control" id="username" placeholder="admin" required>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="mb-3">
+                                <label for="password" class="form-label">Senha</label>
+                                <input type="password" class="form-control" id="password" required>
+                            </div>
+                        </div>
+                        <div class="col-md-1">
+                            <div class="mb-3">
+                                <label class="form-label">&nbsp;</label>
+                                <button type="submit" class="btn btn-success w-100">
+                                    <i class="fas fa-link"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Main Navigation -->
+        <div class="row">
+            <div class="col-md-3">
+                <div class="card">
+                    <div class="card-header">
+                        <h6 class="mb-0">Seções</h6>
+                    </div>
+                    <div class="list-group list-group-flush">
+                        <a href="#" class="list-group-item list-group-item-action section-link active" data-section="hotspot">
+                            <i class="fas fa-wifi me-2"></i>Hotspot
+                        </a>
+                        <a href="#" class="list-group-item list-group-item-action section-link" data-section="system">
+                            <i class="fas fa-cogs me-2"></i>Sistema
+                        </a>
+                        <a href="#" class="list-group-item list-group-item-action section-link" data-section="scripts">
+                            <i class="fas fa-code me-2"></i>Scripts
+                        </a>
+                        <a href="#" class="list-group-item list-group-item-action section-link" data-section="schedules">
+                            <i class="fas fa-clock me-2"></i>Agendamentos
+                        </a>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-md-9">
+                <!-- Hotspot Section -->
+                <div id="hotspot-section" class="section active">
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">
+                                <i class="fas fa-wifi me-2"></i>
+                                Gerenciamento de Hotspot
+                            </h5>
+                            <div class="btn-group" role="group">
+                                <button class="btn btn-outline-primary btn-sm hotspot-tab active" data-tab="users">Usuários</button>
+                                <button class="btn btn-outline-primary btn-sm hotspot-tab" data-tab="profiles">Profiles</button>
+                                <button class="btn btn-outline-primary btn-sm hotspot-tab" data-tab="active">Ativos</button>
+                                <button class="btn btn-outline-primary btn-sm hotspot-tab" data-tab="stats">Estatísticas</button>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <!-- Users Tab -->
+                            <div id="hotspot-users" class="hotspot-content active">
+                                <div class="d-flex justify-content-between align-items-center mb-3">
+                                    <h6>Usuários do Hotspot</h6>
+                                    <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#userModal">
+                                        <i class="fas fa-plus me-2"></i>Novo Usuário
+                                    </button>
+                                </div>
+                                <div class="table-responsive">
+                                    <table class="table table-striped" id="usersTable">
+                                        <thead>
+                                            <tr>
+                                                <th>Nome</th>
+                                                <th>Profile</th>
+                                                <th>Servidor</th>
+                                                <th>Status</th>
+                                                <th>Comentário</th>
+                                                <th>Ações</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody></tbody>
+                                    </table>
+                                </div>
+                            </div>
+
+                            <!-- Profiles Tab -->
+                            <div id="hotspot-profiles" class="hotspot-content">
+                                <div class="d-flex justify-content-between align-items-center mb-3">
+                                    <h6>Profiles do Hotspot</h6>
+                                    <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#profileModal">
+                                        <i class="fas fa-plus me-2"></i>Novo Profile
+                                    </button>
+                                </div>
+                                <div class="table-responsive">
+                                    <table class="table table-striped" id="profilesTable">
+                                        <thead>
+                                            <tr>
+                                                <th>Nome</th>
+                                                <th>Rate Limit</th>
+                                                <th>Session Timeout</th>
+                                                <th>Idle Timeout</th>
+                                                <th>Ações</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody></tbody>
+                                    </table>
+                                </div>
+                            </div>
+
+                            <!-- Active Users Tab -->
+                            <div id="hotspot-active" class="hotspot-content">
+                                <div class="d-flex justify-content-between align-items-center mb-3">
+                                    <h6>Usuários Ativos</h6>
+                                    <button class="btn btn-success btn-sm" onclick="loadActiveUsers()">
+                                        <i class="fas fa-sync me-2"></i>Atualizar
+                                    </button>
+                                </div>
+                                <div class="table-responsive">
+                                    <table class="table table-striped" id="activeUsersTable">
+                                        <thead>
+                                            <tr>
+                                                <th>Usuário</th>
+                                                <th>Endereço</th>
+                                                <th>MAC Address</th>
+                                                <th>Uptime</th>
+                                                <th>Bytes In</th>
+                                                <th>Bytes Out</th>
+                                                <th>Ações</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody></tbody>
+                                    </table>
+                                </div>
+                            </div>
+
+                            <!-- Stats Tab -->
+                            <div id="hotspot-stats" class="hotspot-content">
+                                <h6>Estatísticas do Hotspot</h6>
+                                <div id="hotspotStatsContent"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- System Section -->
+                <div id="system-section" class="section">
+                    <div class="card">
+                        <div class="card-header">
+                            <h5 class="mb-0">
+                                <i class="fas fa-cogs me-2"></i>
+                                Informações do Sistema
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <button class="btn btn-info w-100 mb-2" onclick="loadSystemInfo()">
+                                        <i class="fas fa-info-circle me-2"></i>Informações Gerais
+                                    </button>
+                                </div>
+                                <div class="col-md-6">
+                                    <button class="btn btn-warning w-100 mb-2" onclick="loadSystemLogs()">
+                                        <i class="fas fa-file-alt me-2"></i>Logs do Sistema
+                                    </button>
+                                </div>
+                            </div>
+                            <div id="systemContent" class="mt-3"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Scripts Section -->
+                <div id="scripts-section" class="section">
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">
+                                <i class="fas fa-code me-2"></i>
+                                Gerenciamento de Scripts
+                            </h5>
+                            <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#scriptModal">
+                                <i class="fas fa-plus me-2"></i>Novo Script
+                            </button>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-striped" id="scriptsTable">
+                                    <thead>
+                                        <tr>
+                                            <th>Nome</th>
+                                            <th>Owner</th>
+                                            <th>Policy</th>
+                                            <th>Comentário</th>
+                                            <th>Ações</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Schedules Section -->
+                <div id="schedules-section" class="section">
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">
+                                <i class="fas fa-clock me-2"></i>
+                                Gerenciamento de Agendamentos
+                            </h5>
+                            <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#scheduleModal">
+                                <i class="fas fa-plus me-2"></i>Novo Agendamento
+                            </button>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-striped" id="schedulesTable">
+                                    <thead>
+                                        <tr>
+                                            <th>Nome</th>
+                                            <th>Intervalo</th>
+                                            <th>Próxima Execução</th>
+                                            <th>Status</th>
+                                            <th>Comentário</th>
+                                            <th>Ações</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody></tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- User Modal -->
+    <div class="modal fade" id="userModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Novo Usuário Hotspot</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="userForm">
+                        <div class="mb-3">
+                            <label for="userName" class="form-label">Nome do Usuário</label>
+                            <input type="text" class="form-control" id="userName" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="userPassword" class="form-label">Senha</label>
+                            <input type="password" class="form-control" id="userPassword">
+                        </div>
+                        <div class="mb-3">
+                            <label for="userProfile" class="form-label">Profile</label>
+                            <select class="form-control" id="userProfile">
+                                <option value="default">default</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="userComment" class="form-label">Comentário</label>
+                            <input type="text" class="form-control" id="userComment">
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-primary" onclick="createUser()">Criar Usuário</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Profile Modal -->
+    <div class="modal fade" id="profileModal" tabindex="-1">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Novo Profile Hotspot</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="profileForm">
+                        <div class="mb-3">
+                            <label for="profileName" class="form-label">Nome do Profile</label>
+                            <input type="text" class="form-control" id="profileName" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="profileRateLimit" class="form-label">Rate Limit</label>
+                            <input type="text" class="form-control" id="profileRateLimit" placeholder="1M/1M">
+                        </div>
+                        <div class="mb-3">
+                            <label for="profileSessionTimeout" class="form-label">Session Timeout</label>
+                            <input type="text" class="form-control" id="profileSessionTimeout" placeholder="1h">
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-primary" onclick="createProfile()">Criar Profile</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Script Modal -->
+    <div class="modal fade" id="scriptModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Novo Script</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="scriptForm">
+                        <div class="mb-3">
+                            <label for="scriptName" class="form-label">Nome do Script</label>
+                            <input type="text" class="form-control" id="scriptName" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="scriptSource" class="form-label">Código do Script</label>
+                            <textarea class="form-control" id="scriptSource" rows="10" required></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label for="scriptComment" class="form-label">Comentário</label>
+                            <input type="text" class="form-control" id="scriptComment">
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-primary" onclick="createScript()">Criar Script</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Schedule Modal -->
+    <div class="modal fade" id="scheduleModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Novo Agendamento</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="scheduleForm">
+                        <div class="mb-3">
+                            <label for="scheduleName" class="form-label">Nome do Agendamento</label>
+                            <input type="text" class="form-control" id="scheduleName" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="scheduleOnEvent" class="form-label">Código a ser executado</label>
+                            <textarea class="form-control" id="scheduleOnEvent" rows="5" required></textarea>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="scheduleStartTime" class="form-label">Horário de Início</label>
+                                    <input type="time" class="form-control" id="scheduleStartTime">
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="mb-3">
+                                    <label for="scheduleInterval" class="form-label">Intervalo</label>
+                                    <input type="text" class="form-control" id="scheduleInterval" placeholder="1d, 1h, 00:30:00">
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="scheduleComment" class="form-label">Comentário</label>
+                            <input type="text" class="form-control" id="scheduleComment">
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="button" class="btn btn-primary" onclick="createSchedule()">Criar Agendamento</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Response Modal -->
+    <div class="modal fade" id="responseModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Resposta da API</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <pre id="responseContent" class="bg-light p-3"></pre>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
