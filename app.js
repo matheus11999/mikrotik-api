@@ -24,6 +24,8 @@ const {
     rateLimiter
 } = require('./src/middleware/validation');
 
+const { authenticateApiToken } = require('./src/middleware/auth');
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -43,6 +45,15 @@ app.use(rateLimiter);
 app.use((req, res, next) => {
     console.log(`[APP] [${new Date().toISOString()}] ${req.method} ${req.url} - IP: ${req.ip || req.connection.remoteAddress}`);
     next();
+});
+
+// Middleware de autenticação (aplicado a todas as rotas exceto health check)
+app.use((req, res, next) => {
+    // Pular autenticação para health check e arquivos estáticos
+    if (req.path === '/health' || req.path.startsWith('/css') || req.path.startsWith('/js') || req.path === '/') {
+        return next();
+    }
+    authenticateApiToken(req, res, next);
 });
 
 // Instanciar controllers
