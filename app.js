@@ -14,6 +14,9 @@ const {
     validateId,
     validateHotspotUserData,
     validateHotspotProfileData,
+    validateHotspotServerData,
+    validateHotspotServerProfileData,
+    validateFileName,
     validateScriptData,
     validateScheduleData,
     validateSystemData,
@@ -96,6 +99,25 @@ app.delete('/hotspot/profiles', validateConnectionParams, validateId, (req, res)
 
 // Servidores
 app.get('/hotspot/servers', validateConnectionParams, (req, res) => hotspotController.listServers(req, res));
+app.post('/hotspot/servers', validateConnectionParams, validateHotspotServerData, (req, res) => hotspotController.createServer(req, res));
+app.put('/hotspot/servers', validateConnectionParams, validateId, (req, res) => hotspotController.updateServer(req, res));
+app.delete('/hotspot/servers', validateConnectionParams, validateId, (req, res) => hotspotController.deleteServer(req, res));
+
+// Server Profiles
+app.get('/hotspot/server-profiles', validateConnectionParams, (req, res) => hotspotController.listServerProfiles(req, res));
+app.post('/hotspot/server-profiles', validateConnectionParams, validateHotspotServerProfileData, (req, res) => hotspotController.createServerProfile(req, res));
+app.put('/hotspot/server-profiles', validateConnectionParams, validateId, (req, res) => hotspotController.updateServerProfile(req, res));
+app.delete('/hotspot/server-profiles', validateConnectionParams, validateId, (req, res) => hotspotController.deleteServerProfile(req, res));
+
+// Hotspot Setup
+app.post('/hotspot/setup', validateConnectionParams, (req, res) => hotspotController.hotspotSetup(req, res));
+
+// Gerenciamento de Arquivos
+app.get('/files', validateConnectionParams, (req, res) => hotspotController.listFiles(req, res));
+app.delete('/files', validateConnectionParams, validateFileName, (req, res) => hotspotController.deleteFile(req, res));
+
+// Reinicialização
+app.post('/system/reboot-mikrotik', validateConnectionParams, (req, res) => hotspotController.rebootSystem(req, res));
 
 // Cookies
 app.get('/hotspot/cookies', validateConnectionParams, (req, res) => hotspotController.listCookies(req, res));
@@ -216,9 +238,27 @@ app.use((req, res) => {
             hotspot: [
                 'GET /hotspot/users',
                 'POST /hotspot/users',
+                'PUT /hotspot/users',
+                'DELETE /hotspot/users',
                 'GET /hotspot/active-users',
                 'GET /hotspot/profiles',
+                'POST /hotspot/profiles',
+                'PUT /hotspot/profiles',
+                'DELETE /hotspot/profiles',
+                'GET /hotspot/servers',
+                'POST /hotspot/servers',
+                'PUT /hotspot/servers',
+                'DELETE /hotspot/servers',
+                'GET /hotspot/server-profiles',
+                'POST /hotspot/server-profiles',
+                'PUT /hotspot/server-profiles',
+                'DELETE /hotspot/server-profiles',
+                'POST /hotspot/setup',
                 'GET /hotspot/stats'
+            ],
+            files: [
+                'GET /files',
+                'DELETE /files'
             ],
             system: [
                 'GET /system/info',

@@ -304,6 +304,283 @@ class HotspotController {
         }
     }
 
+    async createServer(req, res) {
+        try {
+            const { ip, username, password, port } = req.query;
+            const serverData = req.body;
+            
+            console.log(`[HOTSPOT-CONTROLLER] [${new Date().toISOString()}] Criando servidor: ${serverData.name}`);
+            
+            const result = await this.hotspotService.createServer(ip, username, password, serverData, port);
+            
+            res.json({
+                success: true,
+                data: result,
+                message: 'Servidor criado com sucesso',
+                timestamp: new Date().toISOString()
+            });
+        } catch (error) {
+            console.error(`[HOTSPOT-CONTROLLER] [${new Date().toISOString()}] Erro ao criar servidor:`, error.message);
+            res.status(500).json({
+                success: false,
+                error: error.message,
+                timestamp: new Date().toISOString()
+            });
+        }
+    }
+
+    async updateServer(req, res) {
+        try {
+            const { ip, username, password, port, id } = req.query;
+            const serverData = req.body;
+            
+            console.log(`[HOTSPOT-CONTROLLER] [${new Date().toISOString()}] Atualizando servidor ID: ${id}`);
+            
+            const result = await this.hotspotService.updateServer(ip, username, password, id, serverData, port);
+            
+            res.json({
+                success: true,
+                data: result,
+                message: 'Servidor atualizado com sucesso',
+                timestamp: new Date().toISOString()
+            });
+        } catch (error) {
+            console.error(`[HOTSPOT-CONTROLLER] [${new Date().toISOString()}] Erro ao atualizar servidor:`, error.message);
+            res.status(500).json({
+                success: false,
+                error: error.message,
+                timestamp: new Date().toISOString()
+            });
+        }
+    }
+
+    async deleteServer(req, res) {
+        try {
+            const { ip, username, password, port, id } = req.query;
+            
+            console.log(`[HOTSPOT-CONTROLLER] [${new Date().toISOString()}] Removendo servidor ID: ${id}`);
+            
+            const result = await this.hotspotService.deleteServer(ip, username, password, id, port);
+            
+            res.json({
+                success: true,
+                data: result,
+                message: 'Servidor removido com sucesso',
+                timestamp: new Date().toISOString()
+            });
+        } catch (error) {
+            console.error(`[HOTSPOT-CONTROLLER] [${new Date().toISOString()}] Erro ao remover servidor:`, error.message);
+            res.status(500).json({
+                success: false,
+                error: error.message,
+                timestamp: new Date().toISOString()
+            });
+        }
+    }
+
+    // ==================== SERVER PROFILES ====================
+    
+    async listServerProfiles(req, res) {
+        try {
+            const { ip, username, password, port } = req.query;
+            
+            console.log(`[HOTSPOT-CONTROLLER] [${new Date().toISOString()}] Listando server profiles para ${ip}`);
+            
+            const profiles = await this.hotspotService.listServerProfiles(ip, username, password, port);
+            
+            res.json({
+                success: true,
+                data: profiles,
+                count: profiles.length,
+                timestamp: new Date().toISOString()
+            });
+        } catch (error) {
+            console.error(`[HOTSPOT-CONTROLLER] [${new Date().toISOString()}] Erro ao listar server profiles:`, error.message);
+            res.status(500).json({
+                success: false,
+                error: error.message,
+                timestamp: new Date().toISOString()
+            });
+        }
+    }
+
+    async createServerProfile(req, res) {
+        try {
+            const { ip, username, password, port } = req.query;
+            const profileData = req.body;
+            
+            console.log(`[HOTSPOT-CONTROLLER] [${new Date().toISOString()}] Criando server profile: ${profileData.name}`);
+            
+            const result = await this.hotspotService.createServerProfile(ip, username, password, profileData, port);
+            
+            res.json({
+                success: true,
+                data: result,
+                message: 'Server profile criado com sucesso',
+                timestamp: new Date().toISOString()
+            });
+        } catch (error) {
+            console.error(`[HOTSPOT-CONTROLLER] [${new Date().toISOString()}] Erro ao criar server profile:`, error.message);
+            res.status(500).json({
+                success: false,
+                error: error.message,
+                timestamp: new Date().toISOString()
+            });
+        }
+    }
+
+    async updateServerProfile(req, res) {
+        try {
+            const { ip, username, password, port, id } = req.query;
+            const profileData = req.body;
+            
+            console.log(`[HOTSPOT-CONTROLLER] [${new Date().toISOString()}] Atualizando server profile ID: ${id}`);
+            
+            const result = await this.hotspotService.updateServerProfile(ip, username, password, id, profileData, port);
+            
+            res.json({
+                success: true,
+                data: result,
+                message: 'Server profile atualizado com sucesso',
+                timestamp: new Date().toISOString()
+            });
+        } catch (error) {
+            console.error(`[HOTSPOT-CONTROLLER] [${new Date().toISOString()}] Erro ao atualizar server profile:`, error.message);
+            res.status(500).json({
+                success: false,
+                error: error.message,
+                timestamp: new Date().toISOString()
+            });
+        }
+    }
+
+    async deleteServerProfile(req, res) {
+        try {
+            const { ip, username, password, port, id } = req.query;
+            
+            console.log(`[HOTSPOT-CONTROLLER] [${new Date().toISOString()}] Removendo server profile ID: ${id}`);
+            
+            const result = await this.hotspotService.deleteServerProfile(ip, username, password, id, port);
+            
+            res.json({
+                success: true,
+                data: result,
+                message: 'Server profile removido com sucesso',
+                timestamp: new Date().toISOString()
+            });
+        } catch (error) {
+            console.error(`[HOTSPOT-CONTROLLER] [${new Date().toISOString()}] Erro ao remover server profile:`, error.message);
+            res.status(500).json({
+                success: false,
+                error: error.message,
+                timestamp: new Date().toISOString()
+            });
+        }
+    }
+
+    // ==================== HOTSPOT SETUP ====================
+    
+    async hotspotSetup(req, res) {
+        try {
+            const { ip, username, password, port } = req.query;
+            const setupData = req.body;
+            
+            console.log(`[HOTSPOT-CONTROLLER] [${new Date().toISOString()}] Executando hotspot setup para ${ip}`);
+            
+            const result = await this.hotspotService.hotspotSetup(ip, username, password, setupData, port);
+            
+            res.json({
+                success: true,
+                data: result,
+                message: 'Hotspot setup executado com sucesso',
+                timestamp: new Date().toISOString()
+            });
+        } catch (error) {
+            console.error(`[HOTSPOT-CONTROLLER] [${new Date().toISOString()}] Erro no hotspot setup:`, error.message);
+            res.status(500).json({
+                success: false,
+                error: error.message,
+                timestamp: new Date().toISOString()
+            });
+        }
+    }
+
+    // ==================== GERENCIAMENTO DE ARQUIVOS ====================
+    
+    async listFiles(req, res) {
+        try {
+            const { ip, username, password, port } = req.query;
+            
+            console.log(`[HOTSPOT-CONTROLLER] [${new Date().toISOString()}] Listando arquivos para ${ip}`);
+            
+            const files = await this.hotspotService.listFiles(ip, username, password, port);
+            
+            res.json({
+                success: true,
+                data: files,
+                count: files.length,
+                timestamp: new Date().toISOString()
+            });
+        } catch (error) {
+            console.error(`[HOTSPOT-CONTROLLER] [${new Date().toISOString()}] Erro ao listar arquivos:`, error.message);
+            res.status(500).json({
+                success: false,
+                error: error.message,
+                timestamp: new Date().toISOString()
+            });
+        }
+    }
+
+    async deleteFile(req, res) {
+        try {
+            const { ip, username, password, port, filename } = req.query;
+            
+            console.log(`[HOTSPOT-CONTROLLER] [${new Date().toISOString()}] Removendo arquivo: ${filename}`);
+            
+            const result = await this.hotspotService.deleteFile(ip, username, password, filename, port);
+            
+            res.json({
+                success: true,
+                data: result,
+                message: 'Arquivo removido com sucesso',
+                timestamp: new Date().toISOString()
+            });
+        } catch (error) {
+            console.error(`[HOTSPOT-CONTROLLER] [${new Date().toISOString()}] Erro ao remover arquivo:`, error.message);
+            res.status(500).json({
+                success: false,
+                error: error.message,
+                timestamp: new Date().toISOString()
+            });
+        }
+    }
+
+    // ==================== REINICIALIZAÇÃO ====================
+    
+    async rebootSystem(req, res) {
+        try {
+            const { ip, username, password, port } = req.query;
+            
+            console.log(`[HOTSPOT-CONTROLLER] [${new Date().toISOString()}] Reiniciando sistema: ${ip}`);
+            
+            const result = await this.hotspotService.rebootSystem(ip, username, password, port);
+            
+            res.json({
+                success: true,
+                data: result,
+                message: 'Sistema reiniciado com sucesso',
+                timestamp: new Date().toISOString()
+            });
+        } catch (error) {
+            console.error(`[HOTSPOT-CONTROLLER] [${new Date().toISOString()}] Erro ao reiniciar sistema:`, error.message);
+            res.status(500).json({
+                success: false,
+                error: error.message,
+                timestamp: new Date().toISOString()
+            });
+        }
+    }
+
     // ==================== COOKIES ====================
     
     async listCookies(req, res) {

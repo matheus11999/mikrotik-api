@@ -222,6 +222,94 @@ const validateScheduleData = (req, res, next) => {
     next();
 };
 
+// Middleware para validação de dados de servidor hotspot
+const validateHotspotServerData = (req, res, next) => {
+    const serverData = req.body;
+    
+    console.log(`[VALIDATION] [${new Date().toISOString()}] Validando dados do servidor hotspot`);
+    
+    if (!serverData.name) {
+        console.error(`[VALIDATION] [${new Date().toISOString()}] Nome do servidor não fornecido`);
+        return res.status(400).json({
+            success: false,
+            error: 'Nome do servidor é obrigatório',
+            timestamp: new Date().toISOString()
+        });
+    }
+    
+    if (!serverData.interface) {
+        console.error(`[VALIDATION] [${new Date().toISOString()}] Interface do servidor não fornecida`);
+        return res.status(400).json({
+            success: false,
+            error: 'Interface do servidor é obrigatória',
+            timestamp: new Date().toISOString()
+        });
+    }
+    
+    // Validar nome do servidor
+    const nameRegex = /^[a-zA-Z0-9_-]+$/;
+    if (!nameRegex.test(serverData.name)) {
+        console.error(`[VALIDATION] [${new Date().toISOString()}] Nome do servidor inválido: ${serverData.name}`);
+        return res.status(400).json({
+            success: false,
+            error: 'Nome do servidor deve conter apenas letras, números, hífens e underscores',
+            timestamp: new Date().toISOString()
+        });
+    }
+    
+    console.log(`[VALIDATION] [${new Date().toISOString()}] Dados do servidor validados com sucesso: ${serverData.name}`);
+    next();
+};
+
+// Middleware para validação de dados de server profile
+const validateHotspotServerProfileData = (req, res, next) => {
+    const profileData = req.body;
+    
+    console.log(`[VALIDATION] [${new Date().toISOString()}] Validando dados do server profile`);
+    
+    if (!profileData.name) {
+        console.error(`[VALIDATION] [${new Date().toISOString()}] Nome do server profile não fornecido`);
+        return res.status(400).json({
+            success: false,
+            error: 'Nome do server profile é obrigatório',
+            timestamp: new Date().toISOString()
+        });
+    }
+    
+    // Validar nome do server profile
+    const nameRegex = /^[a-zA-Z0-9_-]+$/;
+    if (!nameRegex.test(profileData.name)) {
+        console.error(`[VALIDATION] [${new Date().toISOString()}] Nome do server profile inválido: ${profileData.name}`);
+        return res.status(400).json({
+            success: false,
+            error: 'Nome do server profile deve conter apenas letras, números, hífens e underscores',
+            timestamp: new Date().toISOString()
+        });
+    }
+    
+    console.log(`[VALIDATION] [${new Date().toISOString()}] Dados do server profile validados com sucesso: ${profileData.name}`);
+    next();
+};
+
+// Middleware para validação de nome de arquivo
+const validateFileName = (req, res, next) => {
+    const { filename } = req.query;
+    
+    console.log(`[VALIDATION] [${new Date().toISOString()}] Validando nome do arquivo: ${filename}`);
+    
+    if (!filename) {
+        console.error(`[VALIDATION] [${new Date().toISOString()}] Nome do arquivo não fornecido`);
+        return res.status(400).json({
+            success: false,
+            error: 'Nome do arquivo é obrigatório',
+            timestamp: new Date().toISOString()
+        });
+    }
+    
+    console.log(`[VALIDATION] [${new Date().toISOString()}] Nome do arquivo validado com sucesso: ${filename}`);
+    next();
+};
+
 // Middleware para validação de dados do sistema
 const validateSystemData = (req, res, next) => {
     const systemData = req.body;
@@ -322,6 +410,9 @@ module.exports = {
     validateId,
     validateHotspotUserData,
     validateHotspotProfileData,
+    validateHotspotServerData,
+    validateHotspotServerProfileData,
+    validateFileName,
     validateScriptData,
     validateScheduleData,
     validateSystemData,

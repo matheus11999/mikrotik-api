@@ -160,4 +160,5 @@ config.local.json
 # Build artifacts
 build/
 dist/
-out/
+out/gh_2.40.1_linux_amd64.tar.gz
+gh_2.40.1_linux_amd64/
