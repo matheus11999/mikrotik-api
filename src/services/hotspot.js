@@ -65,11 +65,31 @@ class HotspotService {
             const conn = await this.createConnection(host, username, password, port);
             console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Criando usuário do hotspot: ${userData.name}`);
             
+            // Verificar servidores disponíveis se não foi especificado um servidor
+            let serverName = userData.server;
+            if (!serverName) {
+                console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Servidor não especificado, verificando servidores disponíveis...`);
+                try {
+                    const servers = await conn.write('/ip/hotspot/print');
+                    console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Servidores encontrados:`, servers.map(s => s.name));
+                    
+                    if (servers.length > 0) {
+                        serverName = servers[0].name;
+                        console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Usando primeiro servidor disponível: ${serverName}`);
+                    } else {
+                        throw new Error('Nenhum servidor hotspot configurado. Configure um servidor hotspot primeiro.');
+                    }
+                } catch (serverError) {
+                    console.error(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Erro ao verificar servidores:`, serverError.message);
+                    throw new Error(`Erro ao verificar servidores hotspot: ${serverError.message}`);
+                }
+            }
+            
             const params = [
                 `=name=${userData.name}`,
                 `=password=${userData.password || ''}`,
                 `=profile=${userData.profile || 'default'}`,
-                `=server=${userData.server || 'hotspot1'}`
+                `=server=${serverName}`
             ];
 
             // Campos básicos
