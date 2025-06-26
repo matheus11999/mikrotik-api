@@ -79,7 +79,7 @@ class SystemService {
             
             const identity = await conn.write('/system/identity/print');
             
-            console.log(`[SYSTEM-SERVICE] [${new Date().toISOString()}] Identidade obtida: ${identity[0]?.name || 'Sem nome'}`);
+            console.log(`[SYSTEM-SERVICE] [${new Date().toISOString()}] Identidade obtida: ${identity[0] && identity[0].name ? identity[0].name : 'Sem nome'}`);
             return identity[0] || {};
             
         } catch (error) {
@@ -450,7 +450,7 @@ class SystemService {
             return {
                 success: true,
                 message: 'Conexão testada com sucesso',
-                identity: identity[0]?.name || 'Sem nome',
+                identity: identity[0] && identity[0].name ? identity[0].name : 'Sem nome',
                 timestamp: new Date().toISOString()
             };
         } catch (error) {
