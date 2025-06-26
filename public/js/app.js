@@ -4,12 +4,13 @@ class MikroTikAPI {
     constructor() {
         this.baseURL = window.location.origin;
         this.connectionParams = {};
+        this.currentEditingUser = null;
+        this.currentEditingProfile = null;
         this.init();
     }
 
     init() {
         this.setupEventListeners();
-        this.loadHotspotUsers();
     }
 
     setupEventListeners() {
@@ -217,7 +218,7 @@ class MikroTikAPI {
                 <td><span class="badge ${user.disabled === 'true' ? 'bg-secondary' : 'bg-success'}">${user.disabled === 'true' ? 'Desabilitado' : 'Ativo'}</span></td>
                 <td>${user.comment || ''}</td>
                 <td>
-                    <button class="btn btn-sm btn-primary" onclick="editUser('${user['.id']}')">
+                    <button class="btn btn-sm btn-primary me-1" onclick="editUser('${user['.id']}', '${user.name}', '${user.profile}', '${user.server}', '${user.comment}', '${user.disabled}')">
                         <i class="fas fa-edit"></i>
                     </button>
                     <button class="btn btn-sm btn-danger" onclick="deleteUser('${user['.id']}')">
@@ -254,7 +255,7 @@ class MikroTikAPI {
                 <td>${profile['session-timeout'] || ''}</td>
                 <td>${profile['idle-timeout'] || ''}</td>
                 <td>
-                    <button class="btn btn-sm btn-primary" onclick="editProfile('${profile['.id']}')">
+                    <button class="btn btn-sm btn-primary me-1" onclick="editProfile('${profile['.id']}', '${profile.name}', '${profile['rate-limit']}', '${profile['session-timeout']}')">
                         <i class="fas fa-edit"></i>
                     </button>
                     <button class="btn btn-sm btn-danger" onclick="deleteProfile('${profile['.id']}')">
@@ -388,10 +389,10 @@ class MikroTikAPI {
                 <td>${script.policy || ''}</td>
                 <td>${script.comment || ''}</td>
                 <td>
-                    <button class="btn btn-sm btn-success" onclick="runScript('${script['.id']}')">
+                    <button class="btn btn-sm btn-success me-1" onclick="runScript('${script['.id']}')">
                         <i class="fas fa-play"></i>
                     </button>
-                    <button class="btn btn-sm btn-primary" onclick="editScript('${script['.id']}')">
+                    <button class="btn btn-sm btn-primary me-1" onclick="editScript('${script['.id']}')">
                         <i class="fas fa-edit"></i>
                     </button>
                     <button class="btn btn-sm btn-danger" onclick="deleteScript('${script['.id']}')">
@@ -428,7 +429,7 @@ class MikroTikAPI {
                 <td><span class="badge ${schedule.disabled === 'true' ? 'bg-secondary' : 'bg-success'}">${schedule.disabled === 'true' ? 'Desabilitado' : 'Ativo'}</span></td>
                 <td>${schedule.comment || ''}</td>
                 <td>
-                    <button class="btn btn-sm btn-primary" onclick="editSchedule('${schedule['.id']}')">
+                    <button class="btn btn-sm btn-primary me-1" onclick="editSchedule('${schedule['.id']}')">
                         <i class="fas fa-edit"></i>
                     </button>
                     <button class="btn btn-sm btn-danger" onclick="deleteSchedule('${schedule['.id']}')">
@@ -526,6 +527,10 @@ class MikroTikAPI {
     }
 
     showAlert(message, type) {
+        // Remove existing alerts
+        const existingAlerts = document.querySelectorAll('.alert');
+        existingAlerts.forEach(alert => alert.remove());
+
         // Create and show alert
         const alertDiv = document.createElement('div');
         alertDiv.className = `alert alert-${type} alert-dismissible fade show`;
@@ -545,7 +550,6 @@ class MikroTikAPI {
     }
 
     showLoading(message = 'Carregando...') {
-        // Implementation for loading indicator
         console.log(message);
     }
 
@@ -579,6 +583,59 @@ async function createUser() {
     }
 }
 
+async function editUser(id, name, profile, server, comment, disabled) {
+    // Populate form with current values
+    document.getElementById('userName').value = name || '';
+    document.getElementById('userProfile').value = profile || 'default';
+    document.getElementById('userComment').value = comment || '';
+    
+    // Change modal title
+    document.querySelector('#userModal .modal-title').textContent = 'Editar Usuário';
+    
+    // Change button text and action
+    const createBtn = document.querySelector('#userModal .btn-primary');
+    createBtn.textContent = 'Atualizar Usuário';
+    createBtn.onclick = () => updateUser(id);
+    
+    // Store current editing user
+    api.currentEditingUser = id;
+    
+    // Show modal
+    new bootstrap.Modal(document.getElementById('userModal')).show();
+}
+
+async function updateUser(id) {
+    const userData = {
+        name: document.getElementById('userName').value,
+        password: document.getElementById('userPassword').value,
+        profile: document.getElementById('userProfile').value,
+        comment: document.getElementById('userComment').value
+    };
+
+    try {
+        const params = { ...api.connectionParams, id: id };
+        const response = await api.makeRequest('PUT', '/hotspot/users', userData, params);
+        api.showAlert('Usuário atualizado com sucesso!', 'success');
+        bootstrap.Modal.getInstance(document.getElementById('userModal')).hide();
+        api.loadHotspotUsers();
+        resetUserModal();
+    } catch (error) {
+        api.showAlert('Erro ao atualizar usuário: ' + error.message, 'danger');
+    }
+}
+
+function resetUserModal() {
+    document.querySelector('#userModal .modal-title').textContent = 'Novo Usuário Hotspot';
+    const createBtn = document.querySelector('#userModal .btn-primary');
+    createBtn.textContent = 'Criar Usuário';
+    createBtn.onclick = createUser;
+    document.getElementById('userForm').reset();
+    api.currentEditingUser = null;
+}
+
+// Add event listener to reset modal when it's hidden
+document.getElementById('userModal').addEventListener('hidden.bs.modal', resetUserModal);
+
 async function createProfile() {
     const profileData = {
         name: document.getElementById('profileName').value,
@@ -596,6 +653,58 @@ async function createProfile() {
         api.showAlert('Erro ao criar profile: ' + error.message, 'danger');
     }
 }
+
+async function editProfile(id, name, rateLimit, sessionTimeout) {
+    // Populate form
+    document.getElementById('profileName').value = name || '';
+    document.getElementById('profileRateLimit').value = rateLimit || '';
+    document.getElementById('profileSessionTimeout').value = sessionTimeout || '';
+    
+    // Change modal title
+    document.querySelector('#profileModal .modal-title').textContent = 'Editar Profile';
+    
+    // Change button text and action
+    const createBtn = document.querySelector('#profileModal .btn-primary');
+    createBtn.textContent = 'Atualizar Profile';
+    createBtn.onclick = () => updateProfile(id);
+    
+    // Store current editing profile
+    api.currentEditingProfile = id;
+    
+    // Show modal
+    new bootstrap.Modal(document.getElementById('profileModal')).show();
+}
+
+async function updateProfile(id) {
+    const profileData = {
+        name: document.getElementById('profileName').value,
+        rate_limit: document.getElementById('profileRateLimit').value,
+        session_timeout: document.getElementById('profileSessionTimeout').value
+    };
+
+    try {
+        const params = { ...api.connectionParams, id: id };
+        const response = await api.makeRequest('PUT', '/hotspot/profiles', profileData, params);
+        api.showAlert('Profile atualizado com sucesso!', 'success');
+        bootstrap.Modal.getInstance(document.getElementById('profileModal')).hide();
+        api.loadHotspotProfiles();
+        resetProfileModal();
+    } catch (error) {
+        api.showAlert('Erro ao atualizar profile: ' + error.message, 'danger');
+    }
+}
+
+function resetProfileModal() {
+    document.querySelector('#profileModal .modal-title').textContent = 'Novo Profile Hotspot';
+    const createBtn = document.querySelector('#profileModal .btn-primary');
+    createBtn.textContent = 'Criar Profile';
+    createBtn.onclick = createProfile;
+    document.getElementById('profileForm').reset();
+    api.currentEditingProfile = null;
+}
+
+// Add event listener to reset modal when it's hidden
+document.getElementById('profileModal').addEventListener('hidden.bs.modal', resetProfileModal);
 
 async function createScript() {
     const scriptData = {
@@ -648,6 +757,19 @@ async function deleteUser(id) {
     }
 }
 
+async function deleteProfile(id) {
+    if (!confirm('Tem certeza que deseja excluir este profile?')) return;
+
+    try {
+        const params = { ...api.connectionParams, id: id };
+        const response = await api.makeRequest('DELETE', '/hotspot/profiles', null, params);
+        api.showAlert('Profile excluído com sucesso!', 'success');
+        api.loadHotspotProfiles();
+    } catch (error) {
+        api.showAlert('Erro ao excluir profile: ' + error.message, 'danger');
+    }
+}
+
 async function runScript(id) {
     try {
         const params = { ...api.connectionParams, id: id };
@@ -672,10 +794,21 @@ async function disconnectUser(id) {
     }
 }
 
-// Placeholder functions for other actions
-function editUser(id) { console.log('Edit user:', id); }
-function editProfile(id) { console.log('Edit profile:', id); }
-function deleteProfile(id) { console.log('Delete profile:', id); }
+// Functions to load system info
+async function loadSystemInfo() {
+    await api.loadSystemInfo();
+}
+
+async function loadSystemLogs() {
+    await api.loadSystemLogs();
+}
+
+// Refresh functions
+async function loadActiveUsers() {
+    await api.loadActiveUsers();
+}
+
+// Placeholder functions for other actions  
 function editScript(id) { console.log('Edit script:', id); }
 function deleteScript(id) { console.log('Delete script:', id); }
 function editSchedule(id) { console.log('Edit schedule:', id); }
