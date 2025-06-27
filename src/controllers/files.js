@@ -1,7 +1,17 @@
 const FilesService = require('../services/files');
-const { authenticateApiKey, validateConnectionParams } = require('../middleware/auth');
 
 const filesService = new FilesService();
+
+// Helper function to validate connection parameters
+const validateConnectionParams = (ip, username, password) => {
+    if (!ip || !username || !password) {
+        return false;
+    }
+    
+    // Validar formato do IP
+    const ipRegex = /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/;
+    return ipRegex.test(ip);
+};
 
 class FilesController {
     
