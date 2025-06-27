@@ -447,24 +447,49 @@ class ScriptsService {
             
             console.log(`[SCRIPTS-SERVICE] [${new Date().toISOString()}] Script temporário criado: ${tempScriptName}`);
             
-            // Executar script
-            const result = await conn.write('/system/script/run', [`=name=${tempScriptName}`]);
-            
-            // Aguardar execução
-            await new Promise(resolve => setTimeout(resolve, 2000));
-            
-            // Remover script temporário
+            // Executar script usando o número ID em vez do nome
             try {
+                // Buscar o script recém-criado
                 const scripts = await conn.write('/system/script/print', [`=name=${tempScriptName}`]);
                 if (scripts.length > 0) {
-                    await conn.write('/system/script/remove', [`=.id=${scripts[0]['.id']}`]);
+                    const scriptId = scripts[0]['.id'];
+                    console.log(`[SCRIPTS-SERVICE] [${new Date().toISOString()}] Executando script por ID: ${scriptId}`);
+                    
+                    // Executar script por ID
+                    const result = await conn.write('/system/script/run', [`=.id=${scriptId}`]);
+                    
+                    // Aguardar execução
+                    await new Promise(resolve => setTimeout(resolve, 3000));
+                    
+                    console.log(`[SCRIPTS-SERVICE] [${new Date().toISOString()}] Script executado com sucesso`);
+                    
+                    // Remover script temporário
+                    try {
+                        await conn.write('/system/script/remove', [`=.id=${scriptId}`]);
+                        console.log(`[SCRIPTS-SERVICE] [${new Date().toISOString()}] Script temporário removido: ${tempScriptName}`);
+                    } catch (removeError) {
+                        console.warn(`[SCRIPTS-SERVICE] [${new Date().toISOString()}] Erro ao remover script temporário:`, removeError.message);
+                    }
+                    
+                    return result;
+                } else {
+                    throw new Error('Script criado mas não encontrado para execução');
                 }
-            } catch (removeError) {
-                console.warn(`[SCRIPTS-SERVICE] [${new Date().toISOString()}] Erro ao remover script temporário:`, removeError.message);
+            } catch (runError) {
+                console.error(`[SCRIPTS-SERVICE] [${new Date().toISOString()}] Erro ao executar script:`, runError.message);
+                
+                // Tentar remover script mesmo se a execução falhou
+                try {
+                    const scripts = await conn.write('/system/script/print', [`=name=${tempScriptName}`]);
+                    if (scripts.length > 0) {
+                        await conn.write('/system/script/remove', [`=.id=${scripts[0]['.id']}`]);
+                    }
+                } catch (removeError) {
+                    console.warn(`[SCRIPTS-SERVICE] [${new Date().toISOString()}] Erro ao remover script após falha:`, removeError.message);
+                }
+                
+                throw runError;
             }
-            
-            console.log(`[SCRIPTS-SERVICE] [${new Date().toISOString()}] Script ad-hoc executado com sucesso`);
-            return result;
             
         } catch (error) {
             console.error(`[SCRIPTS-SERVICE] [${new Date().toISOString()}] Erro ao executar script ad-hoc:`, error.message);

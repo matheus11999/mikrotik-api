@@ -447,6 +447,7 @@ class HotspotService {
             if (serverData.interface) params.push(`=interface=${serverData.interface}`);
             if (serverData.address_pool !== undefined) params.push(`=address-pool=${serverData.address_pool}`);
             if (serverData.profile !== undefined) params.push(`=profile=${serverData.profile}`);
+            if (serverData.html_directory !== undefined) params.push(`=html-directory=${serverData.html_directory}`);
             if (serverData.disabled !== undefined) params.push(`=disabled=${serverData.disabled}`);
             if (serverData.addresses_per_mac !== undefined) params.push(`=addresses-per-mac=${serverData.addresses_per_mac}`);
             if (serverData.idle_timeout !== undefined) params.push(`=idle-timeout=${serverData.idle_timeout}`);
@@ -563,7 +564,7 @@ class HotspotService {
             
             console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Parâmetros de atualização:`, params);
             
-            const result = await conn.write('/ip/hotspot/profile/set', params);
+            const result = await conn.write('/ip/hotspot/server-profile/set', params);
             console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Server profile atualizado com sucesso ID: ${profileId}`);
             
             return result;
