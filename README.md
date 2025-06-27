@@ -1,63 +1,27 @@
-# MikroTik API
+# MikroTik API + WireGuard VPS2
 
-Uma API completa e moderna para gerenciamento de MikroTik RouterOS com interface web integrada.
+API completa para gerenciamento de MikroTik RouterOS com integração WireGuard.
 
-## 📋 Recursos Principais
+## 🚀 Funcionalidades
 
-### 🔥 Hotspot
-- ✅ CRUD completo de usuários (criar, listar, editar, excluir)
-- ✅ Gerenciamento de profiles (velocidades, limites, timeouts)
-- ✅ Visualização de usuários ativos em tempo real
-- ✅ Desconexão de usuários ativos
-- ✅ Gerenciamento de servidores hotspot
-- ✅ Controle de cookies
-- ✅ Estatísticas detalhadas
+- **Gerenciamento completo do MikroTik RouterOS**
+- **Integração com WG Easy via Docker**
+- **Criação automática de peers WireGuard**
+- **Geração de configurações MikroTik**
+- **API RESTful completa**
 
-### 🖥️ Sistema
-- ✅ Informações completas do sistema (identidade, recursos, relógio)
-- ✅ Gerenciamento de logs (visualizar, limpar)
-- ✅ Usuários do sistema
-- ✅ Interfaces de rede e estatísticas
-- ✅ Endereços IP e rotas
-- ✅ Backup e restore
-- ✅ Controle de sistema (reboot, shutdown)
+## 📋 Pré-requisitos
 
-### 📜 Scripts
-- ✅ CRUD completo de scripts
-- ✅ Execução de scripts por ID ou nome
-- ✅ Gerenciamento de variáveis de ambiente
-- ✅ Controle de jobs (processos em execução)
-- ✅ Templates pré-definidos (backup, monitoramento, etc.)
-- ✅ Estatísticas de execução
+- Node.js 16+
+- Docker (para WG Easy)
+- Acesso ao MikroTik RouterOS
 
-### ⏰ Agendamentos (Schedules)
-- ✅ CRUD completo de agendamentos
-- ✅ Controle de habilitação/desabilitação
-- ✅ Templates de agendamentos comuns
-- ✅ Validação de horários e intervalos
-- ✅ Operações em lote
-- ✅ Estatísticas de execução
+## 🔧 Instalação
 
-### 🌐 Interface Web
-- ✅ Interface moderna e responsiva
-- ✅ Teste de conexão em tempo real
-- ✅ Visualização organizada por seções
-- ✅ Formulários para criação/edição
-- ✅ Tabelas interativas
-- ✅ Feedback visual de operações
-
-## 🚀 Instalação
-
-### Pré-requisitos
-- Node.js 16+ 
-- npm 8+
-- MikroTik RouterOS com API habilitada
-
-### Configuração
-
-1. **Clone ou baixe o projeto**
+1. **Clone o repositório**
 ```bash
-cd mikrotik-api
+git clone <repository-url>
+cd mikrotik-api+wireguard-vps2
 ```
 
 2. **Instale as dependências**
@@ -65,240 +29,133 @@ cd mikrotik-api
 npm install
 ```
 
-3. **Configure o MikroTik**
-Certifique-se de que a API está habilitada no MikroTik:
-```
-/ip service enable api
-/ip service set api port=8728
-```
-
-4. **Inicie a aplicação**
+3. **Configure o ambiente**
 ```bash
-# Produção
-npm start
+cp .env.example .env
+# Edite o arquivo .env com suas configurações
+```
 
-# Desenvolvimento (com auto-reload)
+4. **Configure o WG Easy (Docker)**
+```bash
+# Criar diretório para WG Easy
+mkdir -p ~/wg-easy
+
+# Executar WG Easy com Docker
+docker run -d \
+  --name=wg-easy \
+  -e WG_HOST=193.181.208.141 \
+  -e PASSWORD=your-password \
+  -e WG_DEFAULT_ADDRESS=10.8.0.x \
+  -e WG_DEFAULT_DNS=1.1.1.1 \
+  -e WG_ALLOWED_IPS=0.0.0.0/0 \
+  -p 51820:51820/udp \
+  -p 51821:51821/tcp \
+  -v ~/.wg-easy:/etc/wireguard \
+  --cap-add=NET_ADMIN \
+  --cap-add=SYS_MODULE \
+  --sysctl="net.ipv4.conf.all.src_valid_mark=1" \
+  --sysctl="net.ipv4.ip_forward=1" \
+  --restart unless-stopped \
+  weejewel/wg-easy
+```
+
+5. **Inicie o servidor**
+```bash
+npm start
+# ou para desenvolvimento
 npm run dev
 ```
 
-5. **Acesse a interface**
-Abra seu navegador em: `http://localhost:3000`
-
-## 📖 Uso da API
-
-### Autenticação
-Todas as rotas requerem parâmetros de conexão via query string:
-- `ip`: Endereço IP do MikroTik
-- `username`: Usuário do MikroTik
-- `password`: Senha do usuário
-- `port`: Porta da API (opcional, padrão: 8728)
-
-### Exemplos de Uso
-
-#### Teste de Conexão
-```bash
-curl -X POST "http://localhost:3000/test-connection?ip=192.168.1.1&username=admin&password=senha123"
-```
-
-#### Listar Usuários do Hotspot
-```bash
-curl "http://localhost:3000/hotspot/users?ip=192.168.1.1&username=admin&password=senha123"
-```
-
-#### Criar Usuário
-```bash
-curl -X POST "http://localhost:3000/hotspot/users?ip=192.168.1.1&username=admin&password=senha123" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "name": "usuario_teste",
-    "password": "123456",
-    "profile": "1M",
-    "comment": "Usuário de teste"
-  }'
-```
-
-#### Executar Script
-```bash
-curl -X POST "http://localhost:3000/scripts/run?ip=192.168.1.1&username=admin&password=senha123&id=*1"
-```
-
-## 🛠️ Estrutura do Projeto
-
-```
-mikrotik-api/
-├── app.js                          # Aplicação principal
-├── package.json                    # Dependências e scripts
-├── README.md                       # Documentação
-├── public/                         # Interface web
-│   ├── index.html                  # Página principal
-│   ├── css/style.css              # Estilos customizados
-│   └── js/app.js                  # JavaScript da interface
-└── src/
-    ├── controllers/               # Controladores da API
-    │   ├── hotspot.js            # Controller do hotspot
-    │   ├── system.js             # Controller do sistema
-    │   ├── scripts.js            # Controller de scripts
-    │   └── schedules.js          # Controller de agendamentos
-    ├── services/                  # Lógica de negócio
-    │   ├── hotspot.js            # Serviços do hotspot
-    │   ├── system.js             # Serviços do sistema
-    │   ├── scripts.js            # Serviços de scripts
-    │   └── schedules.js          # Serviços de agendamentos
-    └── middleware/               # Middlewares
-        └── validation.js         # Validações e sanitização
-```
-
-## 📊 Funcionalidades Detalhadas
-
-### Hotspot
-
-#### Usuários
-- **GET** `/hotspot/users` - Listar usuários
-- **POST** `/hotspot/users` - Criar usuário
-- **PUT** `/hotspot/users?id=X` - Atualizar usuário
-- **DELETE** `/hotspot/users?id=X` - Excluir usuário
-
-#### Profiles
-- **GET** `/hotspot/profiles` - Listar profiles
-- **POST** `/hotspot/profiles` - Criar profile
-- **PUT** `/hotspot/profiles?id=X` - Atualizar profile
-- **DELETE** `/hotspot/profiles?id=X` - Excluir profile
-
-#### Usuários Ativos
-- **GET** `/hotspot/active-users` - Listar usuários conectados
-- **POST** `/hotspot/disconnect?id=X` - Desconectar usuário
-
-### Sistema
-
-#### Informações
-- **GET** `/system/info` - Informações completas
-- **GET** `/system/resource` - Recursos do sistema
-- **GET** `/system/interfaces` - Interfaces de rede
-
-#### Logs
-- **GET** `/system/logs` - Visualizar logs
-- **DELETE** `/system/logs` - Limpar logs
-
-#### Backup
-- **POST** `/system/backup` - Criar backup
-- **GET** `/system/backups` - Listar backups
-
-### Scripts
-
-#### Gerenciamento
-- **GET** `/scripts` - Listar scripts
-- **POST** `/scripts` - Criar script
-- **POST** `/scripts/run?id=X` - Executar script
-
-#### Templates
-- **GET** `/scripts/templates` - Listar templates
-- **POST** `/scripts/from-template` - Criar do template
-
-### Agendamentos
-
-#### Gerenciamento
-- **GET** `/schedules` - Listar agendamentos
-- **POST** `/schedules` - Criar agendamento
-- **POST** `/schedules/enable?id=X` - Habilitar
-- **POST** `/schedules/disable?id=X` - Desabilitar
-
-## 🔒 Segurança
-
-### Validações Implementadas
-- ✅ Validação de formato de IP
-- ✅ Sanitização de entrada
-- ✅ Rate limiting (100 req/min por IP)
-- ✅ Validação de parâmetros obrigatórios
-- ✅ Timeout de conexão configurável
-
-### Logs Detalhados
-- ✅ Timestamp em todas as operações
-- ✅ Log de todas as requisições
-- ✅ Log detalhado de erros
-- ✅ Identificação por serviço
-
-## 🎨 Interface Web
-
-### Características
-- ✅ Design responsivo (mobile-friendly)
-- ✅ Bootstrap 5 + Font Awesome
-- ✅ Navegação por abas
-- ✅ Formulários modais
-- ✅ Feedback visual de operações
-- ✅ Tabelas interativas
-
-### Seções da Interface
-1. **Conexão** - Configuração e teste de conexão
-2. **Hotspot** - Usuários, profiles, ativos, estatísticas
-3. **Sistema** - Informações, logs, recursos
-4. **Scripts** - Gerenciamento e execução
-5. **Agendamentos** - Criação e controle
-
-## ⚡ Templates Incluídos
-
-### Scripts
-- **Basic Log** - Log básico com timestamp
-- **Backup Script** - Backup automático
-- **Interface Monitor** - Monitoramento de interfaces
-- **User Cleanup** - Limpeza de usuários inativos
-- **System Health** - Verificação de saúde
-- **Firewall Stats** - Estatísticas do firewall
-
-### Agendamentos
-- **Daily Backup** - Backup diário (02:00)
-- **Weekly Cleanup** - Limpeza semanal (03:00)
-- **Hourly Stats** - Estatísticas horárias
-- **Monthly Report** - Relatório mensal
-- **Interface Monitor** - Monitor a cada 5min
-- **System Reboot** - Reinicialização semanal
-
-## 🚨 Tratamento de Erros
-
-### API
-- ✅ Respostas padronizadas JSON
-- ✅ Códigos HTTP apropriados
-- ✅ Mensagens de erro descritivas
-- ✅ Timestamp em todas as respostas
-
-### Interface
-- ✅ Alertas visuais
-- ✅ Indicadores de carregamento
-- ✅ Mensagens de sucesso/erro
-- ✅ Modal de respostas da API
-
-## 📈 Monitoramento
+## 🌐 Endpoints Principais
 
 ### Health Check
+- `GET /health` - Verificar status do servidor
+
+### WireGuard
+- `GET /wireguard/clients` - Listar clientes
+- `POST /wireguard/clients` - Criar cliente
+- `DELETE /wireguard/clients/:name` - Deletar cliente
+- `POST /wireguard/recreate-config` - Recriar configuração
+
+### Teste
+- `GET /test/wg-easy/connection` - Testar conexão WG Easy
+- `GET /test/wg-easy/clients` - Listar clientes (teste)
+- `POST /test/wg-easy/clients` - Criar cliente teste
+
+### MikroTik
+- `GET /hotspot/*` - Gerenciamento de hotspot
+- `GET /system/*` - Informações do sistema
+- `POST /scripts/*` - Gerenciamento de scripts
+
+## 🔐 Configuração WG Easy
+
+1. **Acesse a interface web**: http://IP:51821
+2. **Configure a senha** no arquivo .env
+3. **Verifique se o Docker está rodando**:
 ```bash
+docker ps | grep wg-easy
+```
+
+## 🧪 Teste de Funcionamento
+
+1. **Teste a API**:
+```bash
+curl http://193.181.208.141:3000/health
+```
+
+2. **Teste o WG Easy**:
+```bash
+curl http://193.181.208.141:3000/test/wg-easy/connection
+```
+
+3. **Crie um cliente teste**:
+```bash
+curl -X POST http://193.181.208.141:3000/test/wg-easy/clients \
+  -H "Content-Type: application/json" \
+  -d '{"clientName": "teste-123"}'
+```
+
+## 📁 Estrutura do Projeto
+
+```
+mikrotik-api+wireguard-vps2/
+├── app.js                 # Arquivo principal
+├── src/
+│   ├── controllers/       # Controllers da API
+│   ├── services/         # Serviços (WireGuard, etc.)
+│   └── middleware/       # Middlewares
+├── public/               # Arquivos estáticos
+└── package.json          # Dependências
+```
+
+## 🐛 Troubleshooting
+
+### WG Easy não está respondendo
+```bash
+# Verificar se está rodando
+docker logs wg-easy
+
+# Reiniciar container
+docker restart wg-easy
+```
+
+### Erro de conexão
+```bash
+# Verificar logs da API
+npm run dev
+
+# Testar endpoints manualmente
 curl http://localhost:3000/health
 ```
 
-### Logs
-Todos os logs incluem:
-- Timestamp ISO
-- Identificação do serviço
-- Detalhes da operação
-- IP do cliente
-
-## 🤝 Contribuição
-
-1. Fork o projeto
-2. Crie uma branch para sua feature
-3. Commit suas mudanças
-4. Push para a branch
-5. Abra um Pull Request
+### Firewall
+```bash
+# Abrir portas necessárias
+sudo ufw allow 3000
+sudo ufw allow 51820/udp
+sudo ufw allow 51821
+```
 
 ## 📄 Licença
 
-Este projeto está sob a licença MIT. Veja o arquivo LICENSE para mais detalhes.
-
-## 📞 Suporte
-
-Para suporte e dúvidas:
-- 📧 Email: suporte@mikrotik-api.com
-- 🐛 Issues: GitHub Issues
-- 📚 Docs: Este README
-
----
-
-**Desenvolvido com ❤️ para a comunidade MikroTik**
+MIT License

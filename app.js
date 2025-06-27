@@ -263,22 +263,22 @@ app.post('/files/test-connection', validateConnectionParams, (req, res) => files
 // ==================== ROTAS WIREGUARD ====================
 
 // Listar clientes WireGuard
-app.get('/wireguard/clients', sanitizeInput, rateLimiter, (req, res) => wireguardController.listClients(req, res));
+app.get('/wireguard/clients', (req, res) => wireguardController.listClients(req, res));
 
 // Criar cliente WireGuard
-app.post('/wireguard/clients', sanitizeInput, rateLimiter, (req, res) => wireguardController.createClient(req, res));
+app.post('/wireguard/clients', (req, res) => wireguardController.createClient(req, res));
 
 // Deletar cliente WireGuard
-app.delete('/wireguard/clients/:clientName', sanitizeInput, rateLimiter, (req, res) => wireguardController.deleteClient(req, res));
+app.delete('/wireguard/clients/:clientName', (req, res) => wireguardController.deleteClient(req, res));
 
 // Gerar configuração MikroTik para cliente existente
-app.get('/wireguard/clients/:clientName/mikrotik-config/:mikrotikId', sanitizeInput, rateLimiter, (req, res) => wireguardController.generateMikroTikConfig(req, res));
+app.get('/wireguard/clients/:clientName/mikrotik-config/:mikrotikId', (req, res) => wireguardController.generateMikroTikConfig(req, res));
 
 // Recriar/obter configuração para MikroTik existente
-app.post('/wireguard/recreate-config', sanitizeInput, rateLimiter, (req, res) => wireguardController.recreateClientConfig(req, res));
+app.post('/wireguard/recreate-config', (req, res) => wireguardController.recreateClientConfig(req, res));
 
 // Teste de conexão WG Easy
-app.post('/wireguard/test-connection', sanitizeInput, rateLimiter, (req, res) => wireguardController.testConnection(req, res));
+app.post('/wireguard/test-connection', (req, res) => wireguardController.testConnection(req, res));
 
 // ==================== ROTAS DE TESTE ====================
 

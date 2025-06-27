@@ -31,6 +31,9 @@ class WireGuardService {
             throw new Error('Falha na autenticação: cookie de sessão não encontrado');
         } catch (error) {
             console.error(`[WIREGUARD-SERVICE] [${new Date().toISOString()}] Erro na autenticação WG Easy:`, error.message);
+            if (error.code === 'ECONNREFUSED') {
+                throw new Error(`WG Easy não está acessível em ${this.wgEasyUrl}. Verifique se o serviço está rodando.`);
+            }
             throw new Error(`Falha na autenticação WG Easy: ${error.message}`);
         }
     }
@@ -68,7 +71,7 @@ class WireGuardService {
                 throw new Error(`Cliente ${clientName} não encontrado após criação`);
             }
 
-            console.log(`[WIREGUARD-SERVICE] [${new Date().toISOString()}] Configuração obtida para: ${clientName}`);
+            console.log(`[WIREGUARD-SERVICE] [${new Date().toISOString()}] Configuração obtida para: ${clientName}, IP: ${client.address}`);
 
             return {
                 clientName: client.name,
@@ -84,6 +87,9 @@ class WireGuardService {
             };
         } catch (error) {
             console.error(`[WIREGUARD-SERVICE] [${new Date().toISOString()}] Erro ao criar usuário WireGuard:`, error.message);
+            if (error.response?.status === 409) {
+                throw new Error(`Cliente ${clientName} já existe no WireGuard`);
+            }
             throw new Error(`Falha na criação do usuário WireGuard: ${error.message}`);
         }
     }
@@ -211,25 +217,19 @@ set [find name="${interfaceName}"] disabled=no
         try {
             console.log(`[WIREGUARD-SERVICE] [${new Date().toISOString()}] Testando conexão com WG Easy...`);
             
-            const sessionCookie = await this.authenticateWgEasy();
-            
             const response = await axios.get(`${this.wgEasyUrl}/api/wireguard/client`, {
-                headers: {
-                    'Cookie': sessionCookie
-                },
                 timeout: 5000
             });
 
-            console.log(`[WIREGUARD-SERVICE] [${new Date().toISOString()}] Conexão com WG Easy OK`);
+            console.log(`[WIREGUARD-SERVICE] [${new Date().toISOString()}] Conexão OK, ${response.data.length} clientes encontrados`);
             return {
-                success: true,
-                message: 'Conexão com WG Easy estabelecida com sucesso',
-                clientsCount: response.data.length,
-                timestamp: new Date().toISOString()
+                status: 'OK',
+                url: this.wgEasyUrl,
+                clientsCount: response.data.length
             };
         } catch (error) {
-            console.error(`[WIREGUARD-SERVICE] [${new Date().toISOString()}] Erro na conexão com WG Easy:`, error.message);
-            throw new Error(`Falha na conexão com WG Easy: ${error.message}`);
+            console.error(`[WIREGUARD-SERVICE] [${new Date().toISOString()}] Erro no teste de conexão:`, error.message);
+            throw new Error(`Falha no teste de conexão WG Easy: ${error.message}`);
         }
     }
 }
