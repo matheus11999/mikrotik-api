@@ -9,6 +9,7 @@ const SystemController = require('./src/controllers/system');
 const ScriptsController = require('./src/controllers/scripts');
 const SchedulesController = require('./src/controllers/schedules');
 const FilesController = require('./src/controllers/files');
+const TemplateController = require('./src/controllers/template');
 
 // Middleware
 const {
@@ -64,6 +65,7 @@ const systemController = new SystemController();
 const scriptsController = new ScriptsController();
 const schedulesController = new SchedulesController();
 const filesController = FilesController;
+const templateController = TemplateController;
 
 // ==================== ROTAS PRINCIPAIS ====================
 
@@ -253,6 +255,17 @@ app.post('/files/upload-template', validateConnectionParams, (req, res) => files
 
 // Teste de conexão para arquivos
 app.post('/files/test-connection', validateConnectionParams, (req, res) => filesController.testConnection(req, res));
+
+// ==================== ROTAS DE TEMPLATES ====================
+
+// Aplicar template
+app.post('/templates/apply', validateConnectionParams, (req, res) => templateController.applyTemplate(req, res));
+
+// Verificar status do template
+app.get('/templates/status', validateConnectionParams, (req, res) => templateController.checkStatus(req, res));
+
+// Teste de conexão para templates
+app.post('/templates/test-connection', validateConnectionParams, (req, res) => templateController.testConnection(req, res));
 
 // ==================== MIDDLEWARE DE ERRO GLOBAL ====================
 
