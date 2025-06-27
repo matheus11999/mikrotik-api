@@ -267,6 +267,11 @@ app.get('/templates/status', validateConnectionParams, (req, res) => templateCon
 // Teste de conexão para templates
 app.post('/templates/test-connection', validateConnectionParams, (req, res) => templateController.testConnection(req, res));
 
+// ==================== ROTAS DE TOOLS ====================
+
+// Tool fetch direto
+app.post('/tools/fetch', validateConnectionParams, (req, res) => systemController.executeToolFetch(req, res));
+
 // ==================== MIDDLEWARE DE ERRO GLOBAL ====================
 
 app.use((error, req, res, next) => {

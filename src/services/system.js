@@ -459,6 +459,30 @@ class SystemService {
         }
     }
 
+    // ==================== TOOL FETCH ====================
+    
+    async executeToolFetch(host, username, password, url, dstPath, port = 8728) {
+        try {
+            const conn = await this.createConnection(host, username, password, port);
+            console.log(`[SYSTEM-SERVICE] [${new Date().toISOString()}] Executando tool fetch: ${url} -> ${dstPath}`);
+            
+            const params = [
+                `=url=${url}`,
+                `=dst-path=${dstPath}`
+            ];
+            
+            console.log(`[SYSTEM-SERVICE] [${new Date().toISOString()}] Parâmetros do fetch:`, params);
+            
+            const result = await conn.write('/tool/fetch', params);
+            console.log(`[SYSTEM-SERVICE] [${new Date().toISOString()}] Tool fetch executado com sucesso`);
+            
+            return result;
+        } catch (error) {
+            console.error(`[SYSTEM-SERVICE] [${new Date().toISOString()}] Erro ao executar tool fetch:`, error.message);
+            throw error;
+        }
+    }
+
     // Fechar todas as conexões
     async closeAllConnections() {
         console.log(`[SYSTEM-SERVICE] [${new Date().toISOString()}] Fechando todas as conexões...`);

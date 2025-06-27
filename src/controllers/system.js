@@ -507,6 +507,33 @@ class SystemController {
             });
         }
     }
+
+    // ==================== TOOL FETCH ====================
+    
+    async executeToolFetch(req, res) {
+        try {
+            const { ip, username, password, port } = req.query;
+            const { url, 'dst-path': dstPath } = req.body;
+            
+            console.log(`[SYSTEM-CONTROLLER] [${new Date().toISOString()}] Executando tool fetch: ${url} -> ${dstPath}`);
+            
+            const result = await this.systemService.executeToolFetch(ip, username, password, url, dstPath, port);
+            
+            res.json({
+                success: true,
+                data: result,
+                message: 'Tool fetch executado com sucesso',
+                timestamp: new Date().toISOString()
+            });
+        } catch (error) {
+            console.error(`[SYSTEM-CONTROLLER] [${new Date().toISOString()}] Erro ao executar tool fetch:`, error.message);
+            res.status(500).json({
+                success: false,
+                error: error.message,
+                timestamp: new Date().toISOString()
+            });
+        }
+    }
 }
 
 module.exports = SystemController;
