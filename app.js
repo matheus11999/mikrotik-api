@@ -10,7 +10,6 @@ const ScriptsController = require('./src/controllers/scripts');
 const SchedulesController = require('./src/controllers/schedules');
 const FilesController = require('./src/controllers/files');
 const TemplateController = require('./src/controllers/template');
-const WireGuardController = require('./src/controllers/wireguard');
 const TestController = require('./src/controllers/test');
 
 // Middleware
@@ -68,7 +67,6 @@ const scriptsController = new ScriptsController();
 const schedulesController = new SchedulesController();
 const filesController = FilesController;
 const templateController = TemplateController;
-const wireguardController = new WireGuardController();
 const testController = new TestController();
 
 // ==================== ROTAS PRINCIPAIS ====================
@@ -260,25 +258,7 @@ app.post('/files/upload-template', validateConnectionParams, (req, res) => files
 // Teste de conexão para arquivos
 app.post('/files/test-connection', validateConnectionParams, (req, res) => filesController.testConnection(req, res));
 
-// ==================== ROTAS WIREGUARD ====================
 
-// Listar clientes WireGuard
-app.get('/wireguard/clients', (req, res) => wireguardController.listClients(req, res));
-
-// Criar cliente WireGuard
-app.post('/wireguard/clients', (req, res) => wireguardController.createClient(req, res));
-
-// Deletar cliente WireGuard
-app.delete('/wireguard/clients/:clientName', (req, res) => wireguardController.deleteClient(req, res));
-
-// Gerar configuração MikroTik para cliente existente
-app.get('/wireguard/clients/:clientName/mikrotik-config/:mikrotikId', (req, res) => wireguardController.generateMikroTikConfig(req, res));
-
-// Recriar/obter configuração para MikroTik existente
-app.post('/wireguard/recreate-config', (req, res) => wireguardController.recreateClientConfig(req, res));
-
-// Teste de conexão WG Easy
-app.post('/wireguard/test-connection', (req, res) => wireguardController.testConnection(req, res));
 
 // ==================== ROTAS DE TESTE ====================
 
@@ -355,14 +335,6 @@ app.use((req, res) => {
             files: [
                 'GET /files',
                 'DELETE /files'
-            ],
-            wireguard: [
-                'GET /wireguard/clients',
-                'POST /wireguard/clients',
-                'DELETE /wireguard/clients/:clientName',
-                'GET /wireguard/clients/:clientName/mikrotik-config/:mikrotikId',
-                'POST /wireguard/recreate-config',
-                'POST /wireguard/test-connection'
             ],
             system: [
                 'GET /system/info',
