@@ -14,26 +14,48 @@ class WireGuardService {
     async authenticateWgEasy() {
         try {
             console.log(`[WIREGUARD-SERVICE] [${new Date().toISOString()}] Autenticando no WG Easy...`);
+            console.log(`[WIREGUARD-SERVICE] [${new Date().toISOString()}] URL: ${this.wgEasyUrl}`);
+            console.log(`[WIREGUARD-SERVICE] [${new Date().toISOString()}] Senha configurada: ${this.wgEasyPassword ? 'Sim' : 'Não'}`);
             
             const response = await axios.post(`${this.wgEasyUrl}/api/session`, {
                 password: this.wgEasyPassword
             }, {
-                timeout: 10000
+                timeout: 10000,
+                validateStatus: (status) => {
+                    // Aceita status 200-299 e 400 para debug
+                    return (status >= 200 && status < 300) || status === 400;
+                }
             });
+
+            console.log(`[WIREGUARD-SERVICE] [${new Date().toISOString()}] Response status:`, response.status);
+            console.log(`[WIREGUARD-SERVICE] [${new Date().toISOString()}] Response headers:`, response.headers);
+
+            if (response.status === 400) {
+                console.error(`[WIREGUARD-SERVICE] [${new Date().toISOString()}] Senha incorreta ou dados inválidos`);
+                throw new Error(`Senha do WG Easy incorreta. Verifique a variável WG_EASY_PASSWORD (atual: ${this.wgEasyPassword})`);
+            }
 
             if (response.headers['set-cookie']) {
                 const cookies = response.headers['set-cookie'];
                 const sessionCookie = cookies.find(cookie => cookie.startsWith('connect.sid='));
-                console.log(`[WIREGUARD-SERVICE] [${new Date().toISOString()}] Autenticado no WG Easy com sucesso`);
-                return sessionCookie;
+                if (sessionCookie) {
+                    console.log(`[WIREGUARD-SERVICE] [${new Date().toISOString()}] Autenticado no WG Easy com sucesso`);
+                    return sessionCookie;
+                }
             }
 
-            throw new Error('Falha na autenticação: cookie de sessão não encontrado');
+            throw new Error('Falha na autenticação: cookie de sessão não encontrado na resposta');
         } catch (error) {
             console.error(`[WIREGUARD-SERVICE] [${new Date().toISOString()}] Erro na autenticação WG Easy:`, error.message);
+            
             if (error.code === 'ECONNREFUSED') {
                 throw new Error(`WG Easy não está acessível em ${this.wgEasyUrl}. Verifique se o serviço está rodando.`);
             }
+            
+            if (error.response?.status === 400) {
+                throw new Error(`Senha incorreta para WG Easy. Senha atual: "${this.wgEasyPassword}". Verifique se está correta.`);
+            }
+            
             throw new Error(`Falha na autenticação WG Easy: ${error.message}`);
         }
     }
@@ -217,19 +239,55 @@ set [find name="${interfaceName}"] disabled=no
         try {
             console.log(`[WIREGUARD-SERVICE] [${new Date().toISOString()}] Testando conexão com WG Easy...`);
             
-            const response = await axios.get(`${this.wgEasyUrl}/api/wireguard/client`, {
-                timeout: 5000
-            });
+            // Primeiro tenta uma requisição simples para verificar se o WG Easy está rodando
+            try {
+                const healthResponse = await axios.get(this.wgEasyUrl, {
+                    timeout: 5000
+                });
+                console.log(`[WIREGUARD-SERVICE] [${new Date().toISOString()}] WG Easy está acessível na URL: ${this.wgEasyUrl}`);
+            } catch (healthError) {
+                console.error(`[WIREGUARD-SERVICE] [${new Date().toISOString()}] WG Easy não está acessível:`, healthError.message);
+                throw new Error(`WG Easy não está disponível em ${this.wgEasyUrl}. Verifique se o Docker está rodando.`);
+            }
 
-            console.log(`[WIREGUARD-SERVICE] [${new Date().toISOString()}] Conexão OK, ${response.data.length} clientes encontrados`);
-            return {
-                status: 'OK',
-                url: this.wgEasyUrl,
-                clientsCount: response.data.length
-            };
+            // Agora testa a autenticação
+            try {
+                const sessionCookie = await this.authenticateWgEasy();
+                console.log(`[WIREGUARD-SERVICE] [${new Date().toISOString()}] Autenticação com WG Easy bem-sucedida`);
+                
+                // Tenta listar clientes para confirmar funcionamento
+                const response = await axios.get(`${this.wgEasyUrl}/api/wireguard/client`, {
+                    headers: {
+                        'Cookie': sessionCookie
+                    },
+                    timeout: 10000
+                });
+
+                console.log(`[WIREGUARD-SERVICE] [${new Date().toISOString()}] Conexão OK, ${response.data.length} clientes encontrados`);
+                return {
+                    status: 'OK',
+                    url: this.wgEasyUrl,
+                    clientsCount: response.data.length,
+                    authenticated: true
+                };
+            } catch (authError) {
+                console.error(`[WIREGUARD-SERVICE] [${new Date().toISOString()}] Erro na autenticação:`, authError.message);
+                return {
+                    status: 'ERROR',
+                    url: this.wgEasyUrl,
+                    error: authError.message,
+                    authenticated: false,
+                    suggestion: 'Verifique a senha do WG Easy na variável WG_EASY_PASSWORD'
+                };
+            }
         } catch (error) {
             console.error(`[WIREGUARD-SERVICE] [${new Date().toISOString()}] Erro no teste de conexão:`, error.message);
-            throw new Error(`Falha no teste de conexão WG Easy: ${error.message}`);
+            return {
+                status: 'ERROR',
+                url: this.wgEasyUrl,
+                error: error.message,
+                authenticated: false
+            };
         }
     }
 }

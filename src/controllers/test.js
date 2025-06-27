@@ -11,6 +11,17 @@ class TestController {
             
             const result = await this.wireguardService.testConnection();
             
+            if (result.status === 'ERROR') {
+                console.warn(`[TEST-CONTROLLER] [${new Date().toISOString()}] WG Easy com problema:`, result.error);
+                return res.status(400).json({
+                    success: false,
+                    data: result,
+                    error: result.error,
+                    message: 'WG Easy não está funcionando corretamente',
+                    timestamp: new Date().toISOString()
+                });
+            }
+            
             res.json({
                 success: true,
                 data: result,
@@ -22,6 +33,7 @@ class TestController {
             res.status(500).json({
                 success: false,
                 error: error.message,
+                message: 'Erro interno no teste de conexão',
                 timestamp: new Date().toISOString()
             });
         }
