@@ -17,10 +17,12 @@ class WireGuardController {
                 });
             }
 
-            console.log(`[WIREGUARD-CONTROLLER] [${new Date().toISOString()}] Criando cliente WireGuard: ${clientName}`);
+            console.log(`[WIREGUARD-CONTROLLER] [${new Date().toISOString()}] Criando cliente WireGuard: ${clientName} para MikroTik: ${mikrotikId}`);
             
             const wgConfig = await this.wireguardService.createWireGuardUser(clientName);
             const mikrotikConfig = this.wireguardService.generateMikroTikConfig(wgConfig, mikrotikId || clientName);
+            
+            console.log(`[WIREGUARD-CONTROLLER] [${new Date().toISOString()}] Cliente criado com sucesso: ${clientName}, IP: ${wgConfig.clientAddress}`);
             
             res.json({
                 success: true,
@@ -33,6 +35,7 @@ class WireGuardController {
             });
         } catch (error) {
             console.error(`[WIREGUARD-CONTROLLER] [${new Date().toISOString()}] Erro ao criar cliente:`, error.message);
+            console.error(`[WIREGUARD-CONTROLLER] Stack trace:`, error.stack);
             res.status(500).json({
                 success: false,
                 error: error.message,
@@ -198,12 +201,15 @@ class WireGuardController {
             const clients = await this.wireguardService.listWireGuardClients();
             let client = clients.find(c => c.name === clientName);
             
+            let isNewClient = false;
             let wgConfig;
-            
-            if (client) {
-                console.log(`[WIREGUARD-CONTROLLER] [${new Date().toISOString()}] Cliente existente encontrado: ${clientName}`);
-                
-                // Cliente existe, usar configuração existente
+
+            if (!client) {
+                console.log(`[WIREGUARD-CONTROLLER] Cliente ${clientName} não existe, criando novo...`);
+                wgConfig = await this.wireguardService.createWireGuardUser(clientName);
+                isNewClient = true;
+            } else {
+                console.log(`[WIREGUARD-CONTROLLER] Cliente ${clientName} já existe, usando configuração existente...`);
                 wgConfig = {
                     clientName: client.name,
                     clientPrivateKey: client.privateKey,
@@ -216,13 +222,8 @@ class WireGuardController {
                     allowedIPs: '0.0.0.0/0,::/0',
                     persistentKeepalive: '25s'
                 };
-            } else {
-                console.log(`[WIREGUARD-CONTROLLER] [${new Date().toISOString()}] Cliente não existe, criando novo: ${clientName}`);
-                
-                // Cliente não existe, criar novo
-                wgConfig = await this.wireguardService.createWireGuardUser(clientName);
             }
-            
+
             const mikrotikConfig = this.wireguardService.generateMikroTikConfig(wgConfig, mikrotikId);
             
             res.json({
@@ -230,13 +231,14 @@ class WireGuardController {
                 data: {
                     client: wgConfig,
                     mikrotikConfig: mikrotikConfig,
-                    isNewClient: !client
+                    isNewClient: isNewClient
                 },
-                message: client ? 'Configuração regenerada com sucesso' : 'Nova configuração criada com sucesso',
+                message: isNewClient ? 'Configuração WireGuard criada com sucesso' : 'Configuração WireGuard obtida com sucesso',
                 timestamp: new Date().toISOString()
             });
         } catch (error) {
             console.error(`[WIREGUARD-CONTROLLER] [${new Date().toISOString()}] Erro ao recriar configuração:`, error.message);
+            console.error(`[WIREGUARD-CONTROLLER] Stack trace:`, error.stack);
             res.status(500).json({
                 success: false,
                 error: error.message,

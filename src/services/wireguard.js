@@ -126,48 +126,50 @@ class WireGuardService {
     }
 
     generateMikroTikConfig(wgConfig, mikrotikId) {
-        const interfaceName = `wg-${mikrotikId}`;
+        const interfaceName = `wg-${mikrotikId.substring(0, 8)}`; // Usar apenas parte do ID
         const clientIP = wgConfig.clientAddress.split('/')[0]; // Remove /32 para usar apenas o IP
+        const serverIP = '10.8.0.1'; // IP do servidor no túnel WireGuard
         
         return `# Configuração WireGuard para MikroTik - ${mikrotikId}
 # Gerado automaticamente em ${new Date().toLocaleString()}
+# IP do túnel: ${clientIP}
 
 # 1. Criar interface WireGuard
 /interface/wireguard
-add name="${interfaceName}" private-key="${wgConfig.clientPrivateKey}" listen-port=51820 comment="Interface WireGuard cliente - Criado automaticamente para ${mikrotikId}"
+add name="${interfaceName}" private-key="${wgConfig.clientPrivateKey}" listen-port=51820 comment="Interface WireGuard cliente - ${mikrotikId}"
 
 # 2. Adicionar peer do servidor
 /interface/wireguard/peers
-add interface="${interfaceName}" public-key="${wgConfig.serverPublicKey}" preshared-key="${wgConfig.preSharedKey}" allowed-address="${wgConfig.allowedIPs}" endpoint-address="${wgConfig.serverEndpoint}" endpoint-port="${wgConfig.serverPort}" persistent-keepalive="${wgConfig.persistentKeepalive}" comment="Peer servidor WireGuard - Criado automaticamente"
+add interface="${interfaceName}" public-key="${wgConfig.serverPublicKey}" preshared-key="${wgConfig.preSharedKey}" allowed-address="0.0.0.0/0" endpoint-address="${wgConfig.serverEndpoint}" endpoint-port="${wgConfig.serverPort}" persistent-keepalive=25 comment="Peer servidor WireGuard"
 
 # 3. Configurar IP do túnel
 /ip/address
-add address="${clientIP}/24" interface="${interfaceName}" comment="IP WireGuard tunnel - Criado automaticamente"
+add address="${clientIP}/24" interface="${interfaceName}" comment="IP WireGuard tunnel"
 
 # 4. Configurar DNS
 /ip/dns
 set servers="1.1.1.1,8.8.8.8" allow-remote-requests=yes
 
-# 5. Adicionar rota padrão via WireGuard
-/ip/route
-add dst-address="0.0.0.0/0" gateway="${interfaceName}" distance=1 comment="Rota padrão via WireGuard - Criado automaticamente"
+# 5. Adicionar rota padrão via WireGuard (opcional - descomente se necessário)
+# /ip/route
+# add dst-address="0.0.0.0/0" gateway="${serverIP}" routing-table=main comment="Rota padrão via WireGuard"
 
 # 6. Configurar firewall - INPUT
 /ip/firewall/filter
-add chain="input" protocol="udp" port="51820" action="accept" comment="Permitir WireGuard UDP - Criado automaticamente"
+add chain="input" protocol="udp" port="51820" action="accept" comment="Permitir WireGuard UDP"
 
 # 7. Configurar firewall - FORWARD
-add chain="forward" out-interface="${interfaceName}" action="accept" comment="Permitir forward para WireGuard - Criado automaticamente"
-add chain="forward" in-interface="${interfaceName}" action="accept" comment="Permitir forward do WireGuard - Criado automaticamente"
+add chain="forward" out-interface="${interfaceName}" action="accept" comment="Permitir forward para WireGuard"
+add chain="forward" in-interface="${interfaceName}" action="accept" comment="Permitir forward do WireGuard"
 
-# 8. Configurar NAT
-/ip/firewall/nat
-add chain="srcnat" out-interface="${interfaceName}" action="masquerade" comment="NAT para WireGuard - Criado automaticamente"
+# 8. Configurar NAT (se necessário para acesso à internet via VPN)
+# /ip/firewall/nat
+# add chain="srcnat" out-interface="${interfaceName}" action="masquerade" comment="NAT para WireGuard"
 
-# 9. Configurar Mangle (opcional - para monitoramento)
+# 9. Configurar Mangle (para monitoramento)
 /ip/firewall/mangle
-add chain="prerouting" in-interface="${interfaceName}" action="mark-connection" new-connection-mark="wireguard-conn" comment="Marcar conexões WireGuard - Criado automaticamente"
-add chain="prerouting" connection-mark="wireguard-conn" action="mark-packet" new-packet-mark="wireguard-packet" comment="Marcar pacotes WireGuard - Criado automaticamente"
+add chain="prerouting" in-interface="${interfaceName}" action="mark-connection" new-connection-mark="wireguard-conn" comment="Marcar conexões WireGuard"
+add chain="prerouting" connection-mark="wireguard-conn" action="mark-packet" new-packet-mark="wireguard-packet" comment="Marcar pacotes WireGuard"
 
 # 10. Habilitar interface
 /interface/wireguard
@@ -176,7 +178,12 @@ set [find name="${interfaceName}"] disabled=no
 # CONFIGURAÇÃO CONCLUÍDA!
 # Interface WireGuard: ${interfaceName}
 # IP do cliente: ${clientIP}/24
-# Status: Ativado automaticamente`;
+# Status: Ativado automaticamente
+# 
+# Para verificar se está funcionando:
+# /interface/wireguard/peers print
+# /ip/address print where interface="${interfaceName}"
+# /ping ${serverIP}`;
     }
 
     async listWireGuardClients() {
