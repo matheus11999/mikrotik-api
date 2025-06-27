@@ -10,7 +10,6 @@ const ScriptsController = require('./src/controllers/scripts');
 const SchedulesController = require('./src/controllers/schedules');
 const FilesController = require('./src/controllers/files');
 const TemplateController = require('./src/controllers/template');
-const TestController = require('./src/controllers/test');
 
 // Middleware
 const {
@@ -67,7 +66,6 @@ const scriptsController = new ScriptsController();
 const schedulesController = new SchedulesController();
 const filesController = FilesController;
 const templateController = TemplateController;
-const testController = new TestController();
 
 // ==================== ROTAS PRINCIPAIS ====================
 
@@ -260,22 +258,6 @@ app.post('/files/test-connection', validateConnectionParams, (req, res) => files
 
 
 
-// ==================== ROTAS DE TESTE ====================
-
-// Página de teste WG Easy
-app.get('/test/wg-easy', (req, res) => testController.getTestPage(req, res));
-
-// Teste de conexão WG Easy
-app.get('/test/wg-easy/connection', (req, res) => testController.testWgEasyConnection(req, res));
-
-// Listar clientes WG Easy
-app.get('/test/wg-easy/clients', (req, res) => testController.listAllClients(req, res));
-
-// Criar cliente de teste
-app.post('/test/wg-easy/clients', (req, res) => testController.createTestClient(req, res));
-
-// Deletar cliente de teste
-app.delete('/test/wg-easy/clients/:clientName', (req, res) => testController.deleteTestClient(req, res));
 
 // ==================== ROTAS DE TEMPLATES ====================
 
@@ -404,7 +386,7 @@ app.listen(PORT, () => {
     console.log(`[APP] [${new Date().toISOString()}]    - Sistema: /system/*`);
     console.log(`[APP] [${new Date().toISOString()}]    - Scripts: /scripts/*`);
     console.log(`[APP] [${new Date().toISOString()}]    - Schedules: /schedules/*`);
-    console.log(`[APP] [${new Date().toISOString()}]    - WireGuard: /wireguard/*`);
+    console.log(`[APP] [${new Date().toISOString()}]    - Files: /files/*`);
 });
 
 module.exports = app;
