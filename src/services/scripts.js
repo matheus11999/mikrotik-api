@@ -430,6 +430,48 @@ class ScriptsService {
         }
     }
 
+    // Executar script ad-hoc (temporário)
+    async runAdHocScript(host, username, password, scriptContent, port = 8728) {
+        try {
+            const conn = await this.createConnection(host, username, password, port);
+            console.log(`[SCRIPTS-SERVICE] [${new Date().toISOString()}] Executando script ad-hoc`);
+            
+            // Criar script temporário
+            const tempScriptName = `temp_script_${Date.now()}`;
+            
+            await conn.write('/system/script/add', [
+                `=name=${tempScriptName}`,
+                `=source=${scriptContent}`,
+                '=policy=read,write,policy,test'
+            ]);
+            
+            console.log(`[SCRIPTS-SERVICE] [${new Date().toISOString()}] Script temporário criado: ${tempScriptName}`);
+            
+            // Executar script
+            const result = await conn.write('/system/script/run', [`=name=${tempScriptName}`]);
+            
+            // Aguardar execução
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            
+            // Remover script temporário
+            try {
+                const scripts = await conn.write('/system/script/print', [`=name=${tempScriptName}`]);
+                if (scripts.length > 0) {
+                    await conn.write('/system/script/remove', [`=.id=${scripts[0]['.id']}`]);
+                }
+            } catch (removeError) {
+                console.warn(`[SCRIPTS-SERVICE] [${new Date().toISOString()}] Erro ao remover script temporário:`, removeError.message);
+            }
+            
+            console.log(`[SCRIPTS-SERVICE] [${new Date().toISOString()}] Script ad-hoc executado com sucesso`);
+            return result;
+            
+        } catch (error) {
+            console.error(`[SCRIPTS-SERVICE] [${new Date().toISOString()}] Erro ao executar script ad-hoc:`, error.message);
+            throw error;
+        }
+    }
+
     // Fechar todas as conexões
     async closeAllConnections() {
         console.log(`[SCRIPTS-SERVICE] [${new Date().toISOString()}] Fechando todas as conexões...`);

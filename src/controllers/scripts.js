@@ -131,16 +131,22 @@ class ScriptsController {
     async runScript(req, res) {
         try {
             const { ip, username, password, port, id, name } = req.query;
+            const { script } = req.body;
             
             let result;
-            if (id) {
+            
+            // Se há um script no body, execute diretamente (ad-hoc)
+            if (script) {
+                console.log(`[SCRIPTS-CONTROLLER] [${new Date().toISOString()}] Executando script ad-hoc`);
+                result = await this.scriptsService.runAdHocScript(ip, username, password, script, port);
+            } else if (id) {
                 console.log(`[SCRIPTS-CONTROLLER] [${new Date().toISOString()}] Executando script ID: ${id}`);
                 result = await this.scriptsService.runScript(ip, username, password, id, port);
             } else if (name) {
                 console.log(`[SCRIPTS-CONTROLLER] [${new Date().toISOString()}] Executando script por nome: ${name}`);
                 result = await this.scriptsService.runScriptByName(ip, username, password, name, port);
             } else {
-                throw new Error('ID ou nome do script é obrigatório');
+                throw new Error('ID, nome do script ou conteúdo do script é obrigatório');
             }
             
             res.json({
