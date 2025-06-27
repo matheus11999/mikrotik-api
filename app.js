@@ -8,6 +8,7 @@ const HotspotController = require('./src/controllers/hotspot');
 const SystemController = require('./src/controllers/system');
 const ScriptsController = require('./src/controllers/scripts');
 const SchedulesController = require('./src/controllers/schedules');
+const FilesController = require('./src/controllers/files');
 
 // Middleware
 const {
@@ -62,6 +63,7 @@ const hotspotController = new HotspotController();
 const systemController = new SystemController();
 const scriptsController = new ScriptsController();
 const schedulesController = new SchedulesController();
+const filesController = FilesController;
 
 // ==================== ROTAS PRINCIPAIS ====================
 
@@ -228,6 +230,29 @@ app.get('/schedules/validate-time', (req, res) => schedulesController.validateTi
 
 // Estatísticas
 app.get('/schedules/stats', validateConnectionParams, (req, res) => schedulesController.getScheduleStats(req, res));
+
+// ==================== ROTAS DE ARQUIVOS ====================
+
+// Listar arquivos
+app.get('/files', validateConnectionParams, (req, res) => filesController.listFiles(req, res));
+
+// Criar diretório
+app.post('/files/create-directory', validateConnectionParams, (req, res) => filesController.createDirectory(req, res));
+
+// Upload de arquivos
+app.post('/files/upload', validateConnectionParams, (req, res) => filesController.uploadFiles(req, res));
+
+// Deletar arquivo
+app.delete('/files', validateConnectionParams, (req, res) => filesController.deleteFile(req, res));
+
+// Obter conteúdo do arquivo
+app.get('/files/content', validateConnectionParams, (req, res) => filesController.getFileContent(req, res));
+
+// Upload de template
+app.post('/files/upload-template', validateConnectionParams, (req, res) => filesController.uploadTemplate(req, res));
+
+// Teste de conexão para arquivos
+app.post('/files/test-connection', validateConnectionParams, (req, res) => filesController.testConnection(req, res));
 
 // ==================== MIDDLEWARE DE ERRO GLOBAL ====================
 
