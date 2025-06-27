@@ -11,6 +11,7 @@ const SchedulesController = require('./src/controllers/schedules');
 const FilesController = require('./src/controllers/files');
 const TemplateController = require('./src/controllers/template');
 const WireGuardController = require('./src/controllers/wireguard');
+const TestController = require('./src/controllers/test');
 
 // Middleware
 const {
@@ -68,6 +69,7 @@ const schedulesController = new SchedulesController();
 const filesController = FilesController;
 const templateController = TemplateController;
 const wireguardController = new WireGuardController();
+const testController = new TestController();
 
 // ==================== ROTAS PRINCIPAIS ====================
 
@@ -277,6 +279,23 @@ app.post('/wireguard/recreate-config', sanitizeInput, rateLimiter, (req, res) =>
 
 // Teste de conexão WG Easy
 app.post('/wireguard/test-connection', sanitizeInput, rateLimiter, (req, res) => wireguardController.testConnection(req, res));
+
+// ==================== ROTAS DE TESTE ====================
+
+// Página de teste WG Easy
+app.get('/test/wg-easy', (req, res) => testController.getTestPage(req, res));
+
+// Teste de conexão WG Easy
+app.get('/test/wg-easy/connection', (req, res) => testController.testWgEasyConnection(req, res));
+
+// Listar clientes WG Easy
+app.get('/test/wg-easy/clients', (req, res) => testController.listAllClients(req, res));
+
+// Criar cliente de teste
+app.post('/test/wg-easy/clients', (req, res) => testController.createTestClient(req, res));
+
+// Deletar cliente de teste
+app.delete('/test/wg-easy/clients/:clientName', (req, res) => testController.deleteTestClient(req, res));
 
 // ==================== ROTAS DE TEMPLATES ====================
 
