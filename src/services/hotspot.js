@@ -486,14 +486,15 @@ class HotspotService {
     async listServerProfiles(host, username, password, port = 8728) {
         try {
             const conn = await this.createConnection(host, username, password, port);
-            console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Listando server profiles do hotspot para ${host}`);
+            console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Listando hotspot profiles para ${host}`);
             
-            const profiles = await conn.write('/ip/hotspot/server-profile/print');
-            console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Encontrados ${profiles.length} server profiles`);
+            // Use /ip/hotspot/profile/print (comando que funciona)
+            const profiles = await conn.write('/ip/hotspot/profile/print');
+            console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Encontrados ${profiles.length} hotspot profiles`);
             
             return profiles;
         } catch (error) {
-            console.error(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Erro ao listar server profiles:`, error.message);
+            console.error(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Erro ao listar hotspot profiles:`, error.message);
             throw error;
         }
     }
@@ -501,36 +502,32 @@ class HotspotService {
     async createServerProfile(host, username, password, profileData, port = 8728) {
         try {
             const conn = await this.createConnection(host, username, password, port);
-            console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Criando server profile do hotspot: ${profileData.name}`);
+            console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Criando hotspot profile: ${profileData.name}`);
             
             const params = [`=name=${profileData.name}`];
             
-            if (profileData.hotspot_address) params.push(`=hotspot-address=${profileData.hotspot_address}`);
-            if (profileData.dns_name) params.push(`=dns-name=${profileData.dns_name}`);
+            // Parâmetros baseados no comando que funciona:
+            // /ip hotspot profile add name=hsprof12 html-directory=hotspot/custom login-by=http-chap,http-pap
             if (profileData.html_directory) params.push(`=html-directory=${profileData.html_directory}`);
-            if (profileData.html_directory_override) params.push(`=html-directory-override=${profileData.html_directory_override}`);
-            if (profileData.http_proxy) params.push(`=http-proxy=${profileData.http_proxy}`);
-            if (profileData.http_cookie_lifetime) params.push(`=http-cookie-lifetime=${profileData.http_cookie_lifetime}`);
             if (profileData.login_by) params.push(`=login-by=${profileData.login_by}`);
-            if (profileData.split_user_domain !== undefined) params.push(`=split-user-domain=${profileData.split_user_domain}`);
-            if (profileData.use_radius !== undefined) params.push(`=use-radius=${profileData.use_radius}`);
-            if (profileData.nas_port_type) params.push(`=nas-port-type=${profileData.nas_port_type}`);
-            if (profileData.radius_accounting !== undefined) params.push(`=radius-accounting=${profileData.radius_accounting}`);
-            if (profileData.radius_interim_update) params.push(`=radius-interim-update=${profileData.radius_interim_update}`);
-            if (profileData.radius_default_domain) params.push(`=radius-default-domain=${profileData.radius_default_domain}`);
-            if (profileData.radius_location_id) params.push(`=radius-location-id=${profileData.radius_location_id}`);
-            if (profileData.radius_location_name) params.push(`=radius-location-name=${profileData.radius_location_name}`);
-            if (profileData.radius_mac_format) params.push(`=radius-mac-format=${profileData.radius_mac_format}`);
-            if (profileData.smtp_server) params.push(`=smtp-server=${profileData.smtp_server}`);
             
-            console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Parâmetros do server profile:`, params);
+            // Parâmetros opcionais do hotspot profile
+            if (profileData.idle_timeout) params.push(`=idle-timeout=${profileData.idle_timeout}`);
+            if (profileData.keepalive_timeout) params.push(`=keepalive-timeout=${profileData.keepalive_timeout}`);
+            if (profileData.status_autorefresh) params.push(`=status-autorefresh=${profileData.status_autorefresh}`);
+            if (profileData.session_timeout) params.push(`=session-timeout=${profileData.session_timeout}`);
+            if (profileData.shared_users) params.push(`=shared-users=${profileData.shared_users}`);
+            if (profileData.rate_limit) params.push(`=rate-limit=${profileData.rate_limit}`);
             
-            const result = await conn.write('/ip/hotspot/server-profile/add', params);
-            console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Server profile criado com sucesso: ${profileData.name}`);
+            console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Parâmetros do hotspot profile:`, params);
+            
+            // Usar comando /ip/hotspot/profile/add
+            const result = await conn.write('/ip/hotspot/profile/add', params);
+            console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Hotspot profile criado com sucesso: ${profileData.name}`);
             
             return result;
         } catch (error) {
-            console.error(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Erro ao criar server profile:`, error.message);
+            console.error(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Erro ao criar hotspot profile:`, error.message);
             throw error;
         }
     }
@@ -538,37 +535,32 @@ class HotspotService {
     async updateServerProfile(host, username, password, profileId, profileData, port = 8728) {
         try {
             const conn = await this.createConnection(host, username, password, port);
-            console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Atualizando server profile do hotspot ID: ${profileId}`);
+            console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Atualizando hotspot profile ID: ${profileId}`);
             
             const params = [`=.id=${profileId}`];
             
+            // Parâmetros baseados no comando que funciona
             if (profileData.name) params.push(`=name=${profileData.name}`);
-            if (profileData.hotspot_address !== undefined) params.push(`=hotspot-address=${profileData.hotspot_address}`);
-            if (profileData.dns_name !== undefined) params.push(`=dns-name=${profileData.dns_name}`);
             if (profileData.html_directory !== undefined) params.push(`=html-directory=${profileData.html_directory}`);
-            if (profileData.html_directory_override !== undefined) params.push(`=html-directory-override=${profileData.html_directory_override}`);
-            if (profileData.http_proxy !== undefined) params.push(`=http-proxy=${profileData.http_proxy}`);
-            if (profileData.http_cookie_lifetime !== undefined) params.push(`=http-cookie-lifetime=${profileData.http_cookie_lifetime}`);
             if (profileData.login_by !== undefined) params.push(`=login-by=${profileData.login_by}`);
-            if (profileData.split_user_domain !== undefined) params.push(`=split-user-domain=${profileData.split_user_domain}`);
-            if (profileData.use_radius !== undefined) params.push(`=use-radius=${profileData.use_radius}`);
-            if (profileData.nas_port_type !== undefined) params.push(`=nas-port-type=${profileData.nas_port_type}`);
-            if (profileData.radius_accounting !== undefined) params.push(`=radius-accounting=${profileData.radius_accounting}`);
-            if (profileData.radius_interim_update !== undefined) params.push(`=radius-interim-update=${profileData.radius_interim_update}`);
-            if (profileData.radius_default_domain !== undefined) params.push(`=radius-default-domain=${profileData.radius_default_domain}`);
-            if (profileData.radius_location_id !== undefined) params.push(`=radius-location-id=${profileData.radius_location_id}`);
-            if (profileData.radius_location_name !== undefined) params.push(`=radius-location-name=${profileData.radius_location_name}`);
-            if (profileData.radius_mac_format !== undefined) params.push(`=radius-mac-format=${profileData.radius_mac_format}`);
-            if (profileData.smtp_server !== undefined) params.push(`=smtp-server=${profileData.smtp_server}`);
+            
+            // Parâmetros opcionais do hotspot profile
+            if (profileData.idle_timeout !== undefined) params.push(`=idle-timeout=${profileData.idle_timeout}`);
+            if (profileData.keepalive_timeout !== undefined) params.push(`=keepalive-timeout=${profileData.keepalive_timeout}`);
+            if (profileData.status_autorefresh !== undefined) params.push(`=status-autorefresh=${profileData.status_autorefresh}`);
+            if (profileData.session_timeout !== undefined) params.push(`=session-timeout=${profileData.session_timeout}`);
+            if (profileData.shared_users !== undefined) params.push(`=shared-users=${profileData.shared_users}`);
+            if (profileData.rate_limit !== undefined) params.push(`=rate-limit=${profileData.rate_limit}`);
             
             console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Parâmetros de atualização:`, params);
             
-            const result = await conn.write('/ip/hotspot/server-profile/set', params);
-            console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Server profile atualizado com sucesso ID: ${profileId}`);
+            // Usar comando /ip/hotspot/profile/set
+            const result = await conn.write('/ip/hotspot/profile/set', params);
+            console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Hotspot profile atualizado com sucesso ID: ${profileId}`);
             
             return result;
         } catch (error) {
-            console.error(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Erro ao atualizar server profile:`, error.message);
+            console.error(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Erro ao atualizar hotspot profile:`, error.message);
             throw error;
         }
     }
@@ -576,14 +568,15 @@ class HotspotService {
     async deleteServerProfile(host, username, password, profileId, port = 8728) {
         try {
             const conn = await this.createConnection(host, username, password, port);
-            console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Removendo server profile do hotspot ID: ${profileId}`);
+            console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Removendo hotspot profile ID: ${profileId}`);
             
-            const result = await conn.write('/ip/hotspot/server-profile/remove', [`=.id=${profileId}`]);
-            console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Server profile removido com sucesso ID: ${profileId}`);
+            // Usar comando /ip/hotspot/profile/remove
+            const result = await conn.write('/ip/hotspot/profile/remove', [`=.id=${profileId}`]);
+            console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Hotspot profile removido com sucesso ID: ${profileId}`);
             
             return result;
         } catch (error) {
-            console.error(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Erro ao remover server profile:`, error.message);
+            console.error(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Erro ao remover hotspot profile:`, error.message);
             throw error;
         }
     }
