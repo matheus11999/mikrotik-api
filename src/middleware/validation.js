@@ -365,42 +365,49 @@ const sanitizeInput = (req, res, next) => {
     next();
 };
 
-// Middleware para rate limiting básico
+// Middleware para rate limiting baseado no IP do MikroTik
 const rateLimiter = (() => {
     const requests = new Map();
-    const WINDOW_SIZE = 60 * 1000; // 1 minuto
-    const MAX_REQUESTS = 100; // máximo de 100 requests por minuto por IP
+    const WINDOW_SIZE = parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 60 * 1000; // 1 minuto por padrão
+    const MAX_REQUESTS = parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 200; // máximo de 200 requests por minuto por IP do MikroTik
     
     return (req, res, next) => {
+        // Usar IP do MikroTik como chave de rate limit se disponível, senão usar IP do cliente
+        const mikrotikIP = req.query.ip;
         const clientIP = req.ip || req.connection.remoteAddress;
+        const rateLimitKey = mikrotikIP || clientIP;
         const now = Date.now();
         
-        console.log(`[RATE-LIMITER] [${new Date().toISOString()}] Verificando rate limit para IP: ${clientIP}`);
+        console.log(`[RATE-LIMITER] [${new Date().toISOString()}] Verificando rate limit para MikroTik IP: ${mikrotikIP || 'N/A'}, Client IP: ${clientIP}, Key: ${rateLimitKey}`);
         
-        if (!requests.has(clientIP)) {
-            requests.set(clientIP, []);
+        if (!requests.has(rateLimitKey)) {
+            requests.set(rateLimitKey, []);
         }
         
-        const clientRequests = requests.get(clientIP);
+        const keyRequests = requests.get(rateLimitKey);
         
         // Remover requests antigas
-        const validRequests = clientRequests.filter(timestamp => now - timestamp < WINDOW_SIZE);
-        requests.set(clientIP, validRequests);
+        const validRequests = keyRequests.filter(timestamp => now - timestamp < WINDOW_SIZE);
+        requests.set(rateLimitKey, validRequests);
         
         if (validRequests.length >= MAX_REQUESTS) {
-            console.warn(`[RATE-LIMITER] [${new Date().toISOString()}] Rate limit excedido para IP: ${clientIP}`);
+            console.warn(`[RATE-LIMITER] [${new Date().toISOString()}] Rate limit excedido para ${mikrotikIP ? 'MikroTik IP' : 'Client IP'}: ${rateLimitKey}`);
             return res.status(429).json({
                 success: false,
-                error: 'Muitas requisições. Tente novamente em 1 minuto.',
+                error: `Muitas requisições para o ${mikrotikIP ? 'MikroTik' : 'cliente'} ${rateLimitKey}. Tente novamente em 1 minuto.`,
+                rateLimitKey: rateLimitKey,
+                requests: validRequests.length,
+                maxRequests: MAX_REQUESTS,
+                windowSizeMs: WINDOW_SIZE,
                 timestamp: new Date().toISOString()
             });
         }
         
         // Adicionar request atual
         validRequests.push(now);
-        requests.set(clientIP, validRequests);
+        requests.set(rateLimitKey, validRequests);
         
-        console.log(`[RATE-LIMITER] [${new Date().toISOString()}] Rate limit OK para IP: ${clientIP} (${validRequests.length}/${MAX_REQUESTS})`);
+        console.log(`[RATE-LIMITER] [${new Date().toISOString()}] Rate limit OK para ${mikrotikIP ? 'MikroTik' : 'Client'} IP: ${rateLimitKey} (${validRequests.length}/${MAX_REQUESTS})`);
         next();
     };
 })();
