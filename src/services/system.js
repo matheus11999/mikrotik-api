@@ -536,15 +536,17 @@ class SystemService {
             const conn = await this.createConnection(host, username, password, port);
             
             // Fetch resource and identity information
-            const [resource, identity] = await Promise.all([
+            const [resource, identity, routerboard] = await Promise.all([
                 conn.write('/system/resource/print'),
-                conn.write('/system/identity/print')
+                conn.write('/system/identity/print'),
+                conn.write('/system/routerboard/print')
             ]);
 
             // Log raw data from RouterOS
             console.log('\n=== DADOS BRUTOS DO ROUTEROS ===');
             console.log('\n[SYSTEM RESOURCE]:', JSON.stringify(resource[0], null, 2));
             console.log('\n[SYSTEM IDENTITY]:', JSON.stringify(identity[0], null, 2));
+            console.log('\n[SYSTEM ROUTERBOARD]:', JSON.stringify(routerboard[0], null, 2));
             
             // Get the raw values for logging
             const boardName = resource[0]?.['board-name'] || 'N/A';
