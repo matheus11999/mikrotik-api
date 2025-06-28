@@ -534,42 +534,51 @@ class SystemService {
     async getEssentialSystemInfo(host, username, password, port = 8728) {
         try {
             const conn = await this.createConnection(host, username, password, port);
-            console.log(`[SYSTEM-SERVICE] [${new Date().toISOString()}] Coletando informações essenciais do sistema para ${host}`);
             
             // Fetch resource and identity information
             const [resource, identity] = await Promise.all([
                 conn.write('/system/resource/print'),
                 conn.write('/system/identity/print')
             ]);
+
+            // Get the raw values for logging
+            const boardName = resource[0]?.['board-name'] || 'N/A';
+            const deviceName = identity[0]?.name || 'N/A';
+            const cpuModel = resource[0]?.cpu || 'N/A';
+            const cpuFreq = resource[0]?.['cpu-frequency'] || '0';
+            const cpuLoad = resource[0]?.['cpu-load'] || '0';
+            const freeMemory = resource[0]?.['free-memory'] || '0';
+            const totalMemory = resource[0]?.['total-memory'] || '0';
+            const uptime = resource[0]?.uptime || 'N/A';
+
+            // Log the raw values for debugging
+            console.log('[SYSTEM-SERVICE] Dados do RouterOS:', {
+                boardName,
+                deviceName,
+                cpu: `${cpuModel} - ${cpuFreq}MHz`,
+                cpuLoad: `${cpuLoad}%`,
+                memory: {
+                    free: `${(parseInt(freeMemory) / (1024*1024)).toFixed(1)}MB`,
+                    total: `${(parseInt(totalMemory) / (1024*1024)).toFixed(1)}MB`
+                },
+                uptime
+            });
             
             // Process and return only needed data
             const essentialData = {
                 resource: {
-                    'board-name': resource[0]?.['board-name'] || 'N/A',
-                    'cpu-load': resource[0]?.['cpu-load'] || '0',
-                    'free-memory': resource[0]?.['free-memory'] || '0',
-                    'total-memory': resource[0]?.['total-memory'] || '0',
-                    cpu: resource[0]?.cpu || 'N/A',
-                    'cpu-frequency': `${resource[0]?.['cpu-frequency'] || '0'}MHz`,
-                    uptime: resource[0]?.uptime || 'N/A'
+                    'board-name': boardName,
+                    'cpu-load': cpuLoad,
+                    'free-memory': freeMemory,
+                    'total-memory': totalMemory,
+                    cpu: cpuModel,
+                    'cpu-frequency': `${cpuFreq}MHz`,
+                    uptime
                 },
                 identity: {
-                    name: identity[0]?.name || resource[0]?.['board-name'] || 'N/A'
+                    name: deviceName
                 }
             };
-            
-            console.log('[SYSTEM-SERVICE] Dados do RouterOS:', {
-                boardName: essentialData.resource['board-name'],
-                deviceName: essentialData.identity.name,
-                cpu: essentialData.resource.cpu,
-                cpuFreq: essentialData.resource['cpu-frequency'],
-                cpuLoad: `${essentialData.resource['cpu-load']}%`,
-                memory: {
-                    free: `${Math.round(parseInt(essentialData.resource['free-memory']) / (1024*1024))}MB`,
-                    total: `${Math.round(parseInt(essentialData.resource['total-memory']) / (1024*1024))}MB`
-                },
-                uptime: essentialData.resource.uptime
-            });
             
             return essentialData;
             
