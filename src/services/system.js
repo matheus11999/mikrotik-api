@@ -536,9 +536,14 @@ class SystemService {
             const conn = await this.createConnection(host, username, password, port);
             console.log(`[SYSTEM-SERVICE] [${new Date().toISOString()}] Coletando informações essenciais do sistema para ${host}`);
             
-            // Fetch only essential information
-            const resource = await conn.write('/system/resource/print');
+            // Fetch resource and identity information
+            const [resource, identity] = await Promise.all([
+                conn.write('/system/resource/print'),
+                conn.write('/system/identity/print')
+            ]);
+            
             console.log('[SYSTEM-SERVICE] Raw resource data:', JSON.stringify(resource, null, 2));
+            console.log('[SYSTEM-SERVICE] Raw identity data:', JSON.stringify(identity, null, 2));
             
             // Process and return only needed data
             const essentialData = {
@@ -550,6 +555,9 @@ class SystemService {
                     cpu: resource[0]?.cpu || 'N/A',
                     'cpu-frequency': resource[0]?.['cpu-frequency'] || 'N/A',
                     uptime: resource[0]?.uptime || 'N/A'
+                },
+                identity: {
+                    name: identity[0]?.name || 'N/A'
                 }
             };
             
