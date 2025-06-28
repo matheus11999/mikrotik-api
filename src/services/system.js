@@ -50,26 +50,52 @@ class SystemService {
             const conn = await this.createConnection(host, username, password, port);
             console.log(`[SYSTEM-SERVICE] [${new Date().toISOString()}] Coletando informações do sistema para ${host}`);
             
+            // Fetch all system information
             const identity = await conn.write('/system/identity/print');
             const resource = await conn.write('/system/resource/print');
             const clock = await conn.write('/system/clock/print');
-            const routerboard = await conn.write('/system/routerboard/print');
             
-            // Log the routerboard data for debugging
-            console.log(`[SYSTEM-SERVICE] [${new Date().toISOString()}] Routerboard data:`, routerboard[0]);
+            // Fetch routerboard information with proper command
+            let routerboard = [];
+            try {
+                routerboard = await conn.write('/system/routerboard/print');
+                console.log(`[SYSTEM-SERVICE] [${new Date().toISOString()}] Raw Routerboard data:`, JSON.stringify(routerboard, null, 2));
+            } catch (rbError) {
+                console.warn(`[SYSTEM-SERVICE] [${new Date().toISOString()}] Error fetching routerboard info:`, rbError.message);
+                // Try alternative command
+                try {
+                    routerboard = await conn.write('/system/routerboard/getall');
+                    console.log(`[SYSTEM-SERVICE] [${new Date().toISOString()}] Raw Routerboard data (alternative):`, JSON.stringify(routerboard, null, 2));
+                } catch (rbError2) {
+                    console.warn(`[SYSTEM-SERVICE] [${new Date().toISOString()}] Error fetching routerboard info (alternative):`, rbError2.message);
+                }
+            }
+
+            // Process routerboard data
+            let routerboardInfo = {};
+            if (routerboard && routerboard.length > 0) {
+                routerboardInfo = routerboard[0];
+            } else {
+                // Fallback to resource data
+                routerboardInfo = {
+                    model: resource[0]?.['board-name'],
+                    'board-name': resource[0]?.['board-name'],
+                    'serial-number': resource[0]?.['serial-number'],
+                    'firmware-type': resource[0]?.['firmware-type']
+                };
+            }
             
             const systemInfo = {
                 identity: identity[0] || {},
                 resource: resource[0] || {},
                 clock: clock[0] || {},
-                routerboard: routerboard[0] || {
-                    model: resource[0]?.['board-name'] || 'Unknown',
-                    'board-name': resource[0]?.['board-name'] || 'Unknown'
-                },
+                routerboard: routerboardInfo,
                 timestamp: new Date().toISOString()
             };
             
-            console.log(`[SYSTEM-SERVICE] [${new Date().toISOString()}] Informações do sistema coletadas com sucesso`);
+            // Log the final system info for debugging
+            console.log(`[SYSTEM-SERVICE] [${new Date().toISOString()}] Final system info:`, JSON.stringify(systemInfo, null, 2));
+            
             return systemInfo;
             
         } catch (error) {
