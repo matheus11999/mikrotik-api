@@ -755,6 +755,98 @@ class HotspotService {
         }
     }
 
+    // ==================== GERENCIAMENTO POR MAC ADDRESS ====================
+    
+    async deleteUserByMac(host, username, password, macAddress, port = 8728) {
+        try {
+            const conn = await this.createConnection(host, username, password, port);
+            console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Procurando usuário com MAC: ${macAddress}`);
+            
+            // Listar todos os usuários para encontrar pelo MAC
+            const users = await conn.write('/ip/hotspot/user/print');
+            
+            // Normalizar MAC address para comparação
+            const cleanMac = macAddress.replace(/[:-]/g, '').toLowerCase();
+            
+            let deletedUser = null;
+            let deleted = false;
+            
+            for (const user of users) {
+                // Verificar MAC address e username
+                const userMac = user['mac-address'] ? user['mac-address'].replace(/[:-]/g, '').toLowerCase() : '';
+                const userName = user.name ? user.name.toLowerCase() : '';
+                
+                if (userMac === cleanMac || userName === cleanMac) {
+                    console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Encontrado usuário para deletar: ${user.name} (MAC: ${user['mac-address']})`);
+                    
+                    // Deletar o usuário
+                    await conn.write('/ip/hotspot/user/remove', [`=.id=${user['.id']}`]);
+                    deletedUser = user;
+                    deleted = true;
+                    
+                    console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Usuário deletado com sucesso: ${user.name}`);
+                    break;
+                }
+            }
+            
+            if (!deleted) {
+                console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Nenhum usuário encontrado com MAC: ${macAddress}`);
+            }
+            
+            return {
+                deleted: deleted,
+                deletedUser: deletedUser,
+                searchedMac: macAddress,
+                totalUsers: users.length
+            };
+        } catch (error) {
+            console.error(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Erro ao deletar usuário por MAC:`, error.message);
+            throw error;
+        }
+    }
+
+    async manageUserWithMac(host, username, password, userData, port = 8728) {
+        try {
+            console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Gerenciando usuário: ${userData.name} (MAC: ${userData['mac-address'] || userData.mac_address})`);
+            
+            const results = {
+                deleteResult: null,
+                createResult: null,
+                success: false
+            };
+            
+            // 1. Primeiro tentar deletar usuário existente pelo MAC
+            const macAddress = userData['mac-address'] || userData.mac_address;
+            if (macAddress) {
+                try {
+                    console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Tentando deletar usuário existente com MAC: ${macAddress}`);
+                    results.deleteResult = await this.deleteUserByMac(host, username, password, macAddress, port);
+                } catch (deleteError) {
+                    console.warn(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Aviso: Não foi possível deletar usuário existente:`, deleteError.message);
+                    results.deleteResult = { deleted: false, error: deleteError.message };
+                }
+            }
+            
+            // 2. Criar novo usuário
+            try {
+                console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Criando novo usuário: ${userData.name}`);
+                results.createResult = await this.createUser(host, username, password, userData, port);
+                results.success = true;
+                
+                console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Usuário gerenciado com sucesso: ${userData.name}`);
+            } catch (createError) {
+                console.error(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Erro ao criar novo usuário:`, createError.message);
+                results.createResult = { success: false, error: createError.message };
+                throw createError;
+            }
+            
+            return results;
+        } catch (error) {
+            console.error(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Erro no gerenciamento do usuário:`, error.message);
+            throw error;
+        }
+    }
+
     // Fechar todas as conexões
     async closeAllConnections() {
         console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Fechando todas as conexões...`);

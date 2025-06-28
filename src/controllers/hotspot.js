@@ -656,6 +656,58 @@ class HotspotController {
         }
     }
 
+    // ==================== GERENCIAMENTO POR MAC ADDRESS ====================
+    
+    async deleteUserByMac(req, res) {
+        try {
+            const { ip, username, password, port } = req.query;
+            const { mac_address } = req.body;
+            
+            console.log(`[HOTSPOT-CONTROLLER] [${new Date().toISOString()}] Deletando usuário por MAC: ${mac_address}`);
+            
+            const result = await this.hotspotService.deleteUserByMac(ip, username, password, mac_address, port);
+            
+            res.json({
+                success: true,
+                data: result,
+                message: result.deleted ? 'Usuário deletado com sucesso' : 'Nenhum usuário encontrado com este MAC',
+                timestamp: new Date().toISOString()
+            });
+        } catch (error) {
+            console.error(`[HOTSPOT-CONTROLLER] [${new Date().toISOString()}] Erro ao deletar usuário por MAC:`, error.message);
+            res.status(500).json({
+                success: false,
+                error: error.message,
+                timestamp: new Date().toISOString()
+            });
+        }
+    }
+
+    async manageUserWithMac(req, res) {
+        try {
+            const { ip, username, password, port } = req.query;
+            const userData = req.body;
+            
+            console.log(`[HOTSPOT-CONTROLLER] [${new Date().toISOString()}] Gerenciando usuário (deletar + criar): ${userData.name}`);
+            
+            const result = await this.hotspotService.manageUserWithMac(ip, username, password, userData, port);
+            
+            res.json({
+                success: true,
+                data: result,
+                message: 'Usuário gerenciado com sucesso',
+                timestamp: new Date().toISOString()
+            });
+        } catch (error) {
+            console.error(`[HOTSPOT-CONTROLLER] [${new Date().toISOString()}] Erro ao gerenciar usuário:`, error.message);
+            res.status(500).json({
+                success: false,
+                error: error.message,
+                timestamp: new Date().toISOString()
+            });
+        }
+    }
+
     // ==================== TESTE DE CONEXÃO ====================
     
     async testConnection(req, res) {
