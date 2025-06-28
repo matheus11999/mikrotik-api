@@ -541,6 +541,11 @@ class SystemService {
                 conn.write('/system/identity/print')
             ]);
 
+            // Log raw data from RouterOS
+            console.log('\n=== DADOS BRUTOS DO ROUTEROS ===');
+            console.log('\n[SYSTEM RESOURCE]:', JSON.stringify(resource[0], null, 2));
+            console.log('\n[SYSTEM IDENTITY]:', JSON.stringify(identity[0], null, 2));
+            
             // Get the raw values for logging
             const boardName = resource[0]?.['board-name'] || 'N/A';
             const deviceName = identity[0]?.name || 'N/A';
@@ -550,21 +555,46 @@ class SystemService {
             const freeMemory = resource[0]?.['free-memory'] || '0';
             const totalMemory = resource[0]?.['total-memory'] || '0';
             const uptime = resource[0]?.uptime || 'N/A';
+            const version = resource[0]?.version || 'N/A';
+            const buildTime = resource[0]?.['build-time'] || 'N/A';
+            const architecture = resource[0]?.['architecture-name'] || 'N/A';
+            const platform = resource[0]?.platform || 'N/A';
+            const cpuCount = resource[0]?.['cpu-count'] || '1';
+            const freeHddSpace = resource[0]?.['free-hdd-space'] || '0';
+            const totalHddSpace = resource[0]?.['total-hdd-space'] || '0';
+            const badBlocks = resource[0]?.['bad-blocks'] || '0';
 
-            // Log the raw values for debugging
-            console.log('[SYSTEM-SERVICE] Dados do RouterOS:', {
-                boardName,
-                deviceName,
-                cpu: `${cpuModel} - ${cpuFreq}MHz`,
-                cpuLoad: `${cpuLoad}%`,
-                memory: {
-                    free: `${(parseInt(freeMemory) / (1024*1024)).toFixed(1)}MB`,
-                    total: `${(parseInt(totalMemory) / (1024*1024)).toFixed(1)}MB`
+            // Log processed data
+            console.log('\n=== DADOS PROCESSADOS ===');
+            console.log({
+                dispositivo: {
+                    modelo: boardName,
+                    nome: deviceName,
+                    plataforma: platform,
+                    arquitetura: architecture,
+                    versaoRouterOS: version,
+                    buildTime: buildTime
                 },
-                uptime
+                processador: {
+                    modelo: cpuModel,
+                    frequencia: `${cpuFreq}`,
+                    nucleos: cpuCount,
+                    uso: `${cpuLoad}%`
+                },
+                memoria: {
+                    livre: `${(parseInt(freeMemory) / (1024*1024)).toFixed(1)}MB`,
+                    total: `${(parseInt(totalMemory) / (1024*1024)).toFixed(1)}MB`,
+                    porcentagemUso: `${((1 - (parseInt(freeMemory) / parseInt(totalMemory))) * 100).toFixed(1)}%`
+                },
+                armazenamento: {
+                    livre: `${(parseInt(freeHddSpace) / (1024*1024)).toFixed(1)}MB`,
+                    total: `${(parseInt(totalHddSpace) / (1024*1024)).toFixed(1)}MB`,
+                    badBlocks: `${badBlocks}%`
+                },
+                uptime: uptime
             });
             
-            // Process and return only needed data
+            // Return the essential data
             const essentialData = {
                 resource: {
                     'board-name': boardName,
@@ -572,8 +602,16 @@ class SystemService {
                     'free-memory': freeMemory,
                     'total-memory': totalMemory,
                     cpu: cpuModel,
-                    'cpu-frequency': `${cpuFreq}MHz`,
-                    uptime
+                    'cpu-frequency': `${cpuFreq}`,
+                    uptime,
+                    version,
+                    'build-time': buildTime,
+                    'architecture-name': architecture,
+                    platform,
+                    'cpu-count': cpuCount,
+                    'free-hdd-space': freeHddSpace,
+                    'total-hdd-space': totalHddSpace,
+                    'bad-blocks': badBlocks
                 },
                 identity: {
                     name: deviceName
