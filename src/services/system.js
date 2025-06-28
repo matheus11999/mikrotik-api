@@ -55,11 +55,17 @@ class SystemService {
             const clock = await conn.write('/system/clock/print');
             const routerboard = await conn.write('/system/routerboard/print');
             
+            // Log the routerboard data for debugging
+            console.log(`[SYSTEM-SERVICE] [${new Date().toISOString()}] Routerboard data:`, routerboard[0]);
+            
             const systemInfo = {
                 identity: identity[0] || {},
                 resource: resource[0] || {},
                 clock: clock[0] || {},
-                routerboard: routerboard[0] || {},
+                routerboard: routerboard[0] || {
+                    model: resource[0]?.['board-name'] || 'Unknown',
+                    'board-name': resource[0]?.['board-name'] || 'Unknown'
+                },
                 timestamp: new Date().toISOString()
             };
             
