@@ -805,6 +805,30 @@ class HotspotService {
         }
     }
 
+    async createUserDirectly(host, username, password, userData, port = 8728) {
+        try {
+            console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Criando usuário diretamente: ${userData.name} (MAC: ${userData['mac-address'] || userData.mac_address})`);
+            
+            const startTime = Date.now();
+            
+            // Criar usuário diretamente sem buscar existentes
+            const createResult = await this.createUser(host, username, password, userData, port);
+            
+            const duration = Date.now() - startTime;
+            console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Usuário criado em ${duration}ms: ${userData.name}`);
+            
+            return {
+                success: true,
+                createResult: createResult,
+                duration: duration,
+                timestamp: new Date().toISOString()
+            };
+        } catch (error) {
+            console.error(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Erro ao criar usuário:`, error.message);
+            throw error;
+        }
+    }
+
     async manageUserWithMac(host, username, password, userData, port = 8728) {
         try {
             console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Gerenciando usuário: ${userData.name} (MAC: ${userData['mac-address'] || userData.mac_address})`);

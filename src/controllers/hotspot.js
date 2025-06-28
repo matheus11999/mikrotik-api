@@ -683,6 +683,31 @@ class HotspotController {
         }
     }
 
+    async createUserDirectly(req, res) {
+        try {
+            const { ip, username, password, port } = req.query;
+            const userData = req.body;
+            
+            console.log(`[HOTSPOT-CONTROLLER] [${new Date().toISOString()}] Criando usuário diretamente: ${userData.name}`);
+            
+            const result = await this.hotspotService.createUserDirectly(ip, username, password, userData, port);
+            
+            res.json({
+                success: true,
+                data: result,
+                message: 'Usuário criado com sucesso',
+                timestamp: new Date().toISOString()
+            });
+        } catch (error) {
+            console.error(`[HOTSPOT-CONTROLLER] [${new Date().toISOString()}] Erro ao criar usuário:`, error.message);
+            res.status(500).json({
+                success: false,
+                error: error.message,
+                timestamp: new Date().toISOString()
+            });
+        }
+    }
+
     async manageUserWithMac(req, res) {
         try {
             const { ip, username, password, port } = req.query;

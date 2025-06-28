@@ -109,6 +109,7 @@ app.post('/hotspot/disconnect', validateConnectionParams, validateId, (req, res)
 
 // Gerenciamento de usuários por MAC address
 app.post('/hotspot/users/delete-by-mac', validateConnectionParams, (req, res) => hotspotController.deleteUserByMac(req, res));
+app.post('/hotspot/users/create-directly', validateConnectionParams, validateHotspotUserData, (req, res) => hotspotController.createUserDirectly(req, res));
 app.post('/hotspot/users/manage-with-mac', validateConnectionParams, validateHotspotUserData, (req, res) => hotspotController.manageUserWithMac(req, res));
 
 // Profiles
