@@ -535,7 +535,7 @@ class SystemService {
         try {
             const conn = await this.createConnection(host, username, password, port);
             
-            // Fetch resource and identity information
+            // Fetch resource, identity and routerboard information
             const [resource, identity, routerboard] = await Promise.all([
                 conn.write('/system/resource/print'),
                 conn.write('/system/identity/print'),
@@ -566,6 +566,15 @@ class SystemService {
             const totalHddSpace = resource[0]?.['total-hdd-space'] || '0';
             const badBlocks = resource[0]?.['bad-blocks'] || '0';
 
+            // Get routerboard specific information
+            const isRouterboard = routerboard[0]?.routerboard || 'no';
+            const rbModel = routerboard[0]?.model || 'N/A';
+            const serialNumber = routerboard[0]?.['serial-number'] || 'N/A';
+            const firmwareType = routerboard[0]?.['firmware-type'] || 'N/A';
+            const factoryFirmware = routerboard[0]?.['factory-firmware'] || 'N/A';
+            const currentFirmware = routerboard[0]?.['current-firmware'] || 'N/A';
+            const upgradeFirmware = routerboard[0]?.['upgrade-firmware'] || 'N/A';
+
             // Log processed data
             console.log('\n=== DADOS PROCESSADOS ===');
             console.log({
@@ -576,6 +585,15 @@ class SystemService {
                     arquitetura: architecture,
                     versaoRouterOS: version,
                     buildTime: buildTime
+                },
+                routerboard: {
+                    ativo: isRouterboard === 'yes' ? 'Sim' : 'Não',
+                    modelo: rbModel,
+                    numeroSerie: serialNumber,
+                    tipoFirmware: firmwareType,
+                    firmwareOriginal: factoryFirmware,
+                    firmwareAtual: currentFirmware,
+                    firmwareDisponivel: upgradeFirmware
                 },
                 processador: {
                     modelo: cpuModel,
@@ -617,6 +635,15 @@ class SystemService {
                 },
                 identity: {
                     name: deviceName
+                },
+                routerboard: {
+                    routerboard: isRouterboard,
+                    model: rbModel,
+                    'serial-number': serialNumber,
+                    'firmware-type': firmwareType,
+                    'factory-firmware': factoryFirmware,
+                    'current-firmware': currentFirmware,
+                    'upgrade-firmware': upgradeFirmware
                 }
             };
             
