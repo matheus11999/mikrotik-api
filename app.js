@@ -181,6 +181,9 @@ app.post('/system/shutdown', validateConnectionParams, (req, res) => systemContr
 // Estatísticas completas
 app.get('/system/complete-stats', validateConnectionParams, (req, res) => systemController.getCompleteStats(req, res));
 
+// Sistema
+app.get('/system/essential-info', validateConnectionParams, (req, res) => systemController.getEssentialSystemInfo(req, res));
+
 // ==================== ROTAS DOS SCRIPTS ====================
 
 // Scripts básicos

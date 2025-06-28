@@ -530,6 +530,35 @@ class SystemService {
         
         this.connections.clear();
     }
+
+    async getEssentialSystemInfo(host, username, password, port = 8728) {
+        try {
+            const conn = await this.createConnection(host, username, password, port);
+            console.log(`[SYSTEM-SERVICE] [${new Date().toISOString()}] Coletando informações essenciais do sistema para ${host}`);
+            
+            // Fetch only essential information
+            const resource = await conn.write('/system/resource/print');
+            
+            // Process and return only needed data
+            const essentialData = {
+                resource: {
+                    'board-name': resource[0]?.['board-name'] || 'N/A',
+                    'cpu-load': resource[0]?.['cpu-load'] || '0',
+                    'free-memory': resource[0]?.['free-memory'] || '0',
+                    'total-memory': resource[0]?.['total-memory'] || '0',
+                    cpu: resource[0]?.cpu || 'N/A',
+                    'cpu-frequency': resource[0]?.['cpu-frequency'] || 'N/A',
+                    uptime: resource[0]?.uptime || 'N/A'
+                }
+            };
+            
+            return essentialData;
+            
+        } catch (error) {
+            console.error(`[SYSTEM-SERVICE] [${new Date().toISOString()}] Erro ao coletar informações essenciais:`, error.message);
+            throw error;
+        }
+    }
 }
 
 module.exports = SystemService;

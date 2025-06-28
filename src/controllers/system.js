@@ -534,6 +534,29 @@ class SystemController {
             });
         }
     }
+
+    async getEssentialSystemInfo(req, res) {
+        try {
+            const { ip, username, password, port } = req.query;
+            
+            console.log(`[SYSTEM-CONTROLLER] [${new Date().toISOString()}] Obtendo informações essenciais do sistema para ${ip}`);
+            
+            const essentialInfo = await this.systemService.getEssentialSystemInfo(ip, username, password, port);
+            
+            res.json({
+                success: true,
+                data: essentialInfo,
+                timestamp: new Date().toISOString()
+            });
+        } catch (error) {
+            console.error(`[SYSTEM-CONTROLLER] [${new Date().toISOString()}] Erro ao obter informações essenciais:`, error.message);
+            res.status(500).json({
+                success: false,
+                error: error.message,
+                timestamp: new Date().toISOString()
+            });
+        }
+    }
 }
 
 module.exports = SystemController;
