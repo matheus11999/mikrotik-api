@@ -538,6 +538,7 @@ class SystemService {
             
             // Fetch only essential information
             const resource = await conn.write('/system/resource/print');
+            console.log('[SYSTEM-SERVICE] Raw resource data:', JSON.stringify(resource, null, 2));
             
             // Process and return only needed data
             const essentialData = {
@@ -552,6 +553,7 @@ class SystemService {
                 }
             };
             
+            console.log('[SYSTEM-SERVICE] Processed essential data:', JSON.stringify(essentialData, null, 2));
             return essentialData;
             
         } catch (error) {

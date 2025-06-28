@@ -542,12 +542,16 @@ class SystemController {
             console.log(`[SYSTEM-CONTROLLER] [${new Date().toISOString()}] Obtendo informações essenciais do sistema para ${ip}`);
             
             const essentialInfo = await this.systemService.getEssentialSystemInfo(ip, username, password, port);
+            console.log('[SYSTEM-CONTROLLER] Essential info response:', JSON.stringify(essentialInfo, null, 2));
             
-            res.json({
+            const response = {
                 success: true,
                 data: essentialInfo,
                 timestamp: new Date().toISOString()
-            });
+            };
+            
+            console.log('[SYSTEM-CONTROLLER] Final response:', JSON.stringify(response, null, 2));
+            res.json(response);
         } catch (error) {
             console.error(`[SYSTEM-CONTROLLER] [${new Date().toISOString()}] Erro ao obter informações essenciais:`, error.message);
             res.status(500).json({
