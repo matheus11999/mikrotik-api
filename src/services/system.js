@@ -542,9 +542,6 @@ class SystemService {
                 conn.write('/system/identity/print')
             ]);
             
-            console.log('[SYSTEM-SERVICE] Raw resource data:', JSON.stringify(resource, null, 2));
-            console.log('[SYSTEM-SERVICE] Raw identity data:', JSON.stringify(identity, null, 2));
-            
             // Process and return only needed data
             const essentialData = {
                 resource: {
@@ -553,15 +550,27 @@ class SystemService {
                     'free-memory': resource[0]?.['free-memory'] || '0',
                     'total-memory': resource[0]?.['total-memory'] || '0',
                     cpu: resource[0]?.cpu || 'N/A',
-                    'cpu-frequency': resource[0]?.['cpu-frequency'] || 'N/A',
+                    'cpu-frequency': `${resource[0]?.['cpu-frequency'] || '0'}MHz`,
                     uptime: resource[0]?.uptime || 'N/A'
                 },
                 identity: {
-                    name: identity[0]?.name || 'N/A'
+                    name: identity[0]?.name || resource[0]?.['board-name'] || 'N/A'
                 }
             };
             
-            console.log('[SYSTEM-SERVICE] Processed essential data:', JSON.stringify(essentialData, null, 2));
+            console.log('[SYSTEM-SERVICE] Dados do RouterOS:', {
+                boardName: essentialData.resource['board-name'],
+                deviceName: essentialData.identity.name,
+                cpu: essentialData.resource.cpu,
+                cpuFreq: essentialData.resource['cpu-frequency'],
+                cpuLoad: `${essentialData.resource['cpu-load']}%`,
+                memory: {
+                    free: `${Math.round(parseInt(essentialData.resource['free-memory']) / (1024*1024))}MB`,
+                    total: `${Math.round(parseInt(essentialData.resource['total-memory']) / (1024*1024))}MB`
+                },
+                uptime: essentialData.resource.uptime
+            });
+            
             return essentialData;
             
         } catch (error) {
