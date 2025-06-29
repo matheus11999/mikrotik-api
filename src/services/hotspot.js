@@ -43,7 +43,7 @@ class HotspotService {
         }
     }
 
-    // ==================== USUÁRIOS HOTSPOT ====================
+    // ==================== USUÁRIOS HOTSPOwT ====================
     
     async listUsers(host, username, password, port = 8728) {
         try {
