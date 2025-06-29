@@ -739,14 +739,14 @@ class HotspotController {
         try {
             const { ip, username, password, port } = req.query;
             
-            console.log(`[HOTSPOT-CONTROLLER] [${new Date().toISOString()}] Testando conexão para ${ip}:${port}`);
+            console.log(`[HOTSPOT-CONTROLLER] [${new Date().toISOString()}] Testando conexão com ${ip}:${port}`);
             
             const result = await this.hotspotService.testConnection(ip, username, password, port);
             
             res.json({
                 success: true,
-                data: result,
                 message: 'Conexão testada com sucesso',
+                data: result,
                 timestamp: new Date().toISOString()
             });
         } catch (error) {
@@ -754,6 +754,93 @@ class HotspotController {
             res.status(500).json({
                 success: false,
                 error: error.message,
+                timestamp: new Date().toISOString()
+            });
+        }
+    }
+
+    // ==================== CRIAÇÃO EM MASSA ====================
+    
+    async createBulkUsers(req, res) {
+        try {
+            const { ip, username, password, port } = req.query;
+            const { users, options = {} } = req.body;
+            
+            console.log(`[HOTSPOT-CONTROLLER] [${new Date().toISOString()}] Iniciando criação em massa de ${users?.length || 0} usuários`);
+            
+            // Validações
+            if (!users || !Array.isArray(users) || users.length === 0) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Lista de usuários é obrigatória e deve ser um array não vazio',
+                    timestamp: new Date().toISOString()
+                });
+            }
+
+            // Validar limite de quantidade
+            const maxUsers = options.maxUsers || 500;
+            if (users.length > maxUsers) {
+                return res.status(400).json({
+                    success: false,
+                    error: `Máximo de ${maxUsers} usuários por vez. Recebido: ${users.length}`,
+                    timestamp: new Date().toISOString()
+                });
+            }
+
+            // Validar dados de cada usuário
+            const invalidUsers = [];
+            users.forEach((user, index) => {
+                if (!user.name || !user.password) {
+                    invalidUsers.push(`Usuário ${index + 1}: nome e senha são obrigatórios`);
+                }
+                if (!user.profile) {
+                    invalidUsers.push(`Usuário ${index + 1}: perfil é obrigatório`);
+                }
+            });
+
+            if (invalidUsers.length > 0) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Dados inválidos encontrados',
+                    details: invalidUsers.slice(0, 10), // Limita a 10 erros
+                    timestamp: new Date().toISOString()
+                });
+            }
+            
+            const result = await this.hotspotService.createBulkUsers(ip, username, password, users, options, port);
+            
+            // Determinar status da resposta
+            const isPartialSuccess = result.created > 0 && result.failed > 0;
+            const isCompleteFailure = result.created === 0 && result.failed > 0;
+            
+            const statusCode = isCompleteFailure ? 500 : (isPartialSuccess ? 207 : 200); // 207 = Multi-Status
+            
+            res.status(statusCode).json({
+                success: result.created > 0,
+                message: result.created === result.total 
+                    ? `Todos os ${result.total} usuários foram criados com sucesso!`
+                    : result.created > 0
+                        ? `${result.created} de ${result.total} usuários criados com sucesso. ${result.failed} falharam.`
+                        : `Falha ao criar todos os ${result.total} usuários.`,
+                data: {
+                    summary: result.summary,
+                    successful: result.successful,
+                    errors: result.errors.slice(0, 20), // Limita errors retornados
+                    hasMoreErrors: result.errors.length > 20,
+                    batchInfo: {
+                        batchSize: options.batchSize || 10,
+                        delayBetweenBatches: options.delayBetweenBatches || 300,
+                        maxRetries: options.maxRetries || 2
+                    }
+                },
+                timestamp: new Date().toISOString()
+            });
+        } catch (error) {
+            console.error(`[HOTSPOT-CONTROLLER] [${new Date().toISOString()}] Erro crítico na criação em massa:`, error.message);
+            res.status(500).json({
+                success: false,
+                error: 'Erro interno do servidor durante a criação em massa',
+                details: error.message,
                 timestamp: new Date().toISOString()
             });
         }

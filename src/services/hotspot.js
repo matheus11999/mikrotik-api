@@ -873,8 +873,7 @@ class HotspotService {
 
     // Fechar todas as conexões
     async closeAllConnections() {
-        console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Fechando todas as conexões...`);
-        
+        console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Fechando todas as conexões MikroTik (${this.connections.size} conexões)`);
         for (const [key, conn] of this.connections) {
             try {
                 await conn.close();
@@ -883,8 +882,150 @@ class HotspotService {
                 console.error(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Erro ao fechar conexão ${key}:`, error.message);
             }
         }
-        
         this.connections.clear();
+    }
+
+    // ==================== CRIAÇÃO EM MASSA ====================
+    
+    async createBulkUsers(host, username, password, users, options = {}, port = 8728) {
+        try {
+            const conn = await this.createConnection(host, username, password, port);
+            console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Iniciando criação em massa de ${users.length} usuários`);
+
+            // Configurações do lote
+            const batchSize = options.batchSize || 10;
+            const delayBetweenBatches = options.delayBetweenBatches || 300;
+            const maxRetries = options.maxRetries || 2;
+
+            // Verificar servidores disponíveis uma vez
+            let defaultServer = null;
+            try {
+                const servers = await conn.write('/ip/hotspot/print');
+                if (servers.length > 0) {
+                    defaultServer = servers[0].name;
+                    console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Servidor padrão selecionado: ${defaultServer}`);
+                } else {
+                    throw new Error('Nenhum servidor hotspot configurado');
+                }
+            } catch (serverError) {
+                console.error(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Erro ao verificar servidores:`, serverError.message);
+                throw new Error(`Erro ao verificar servidores hotspot: ${serverError.message}`);
+            }
+
+            const results = {
+                total: users.length,
+                created: 0,
+                failed: 0,
+                errors: [],
+                successful: []
+            };
+
+            // Processar usuários em lotes
+            for (let i = 0; i < users.length; i += batchSize) {
+                const batch = users.slice(i, i + batchSize);
+                const batchNumber = Math.floor(i / batchSize) + 1;
+                const totalBatches = Math.ceil(users.length / batchSize);
+                
+                console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Processando lote ${batchNumber}/${totalBatches} (${batch.length} usuários)`);
+
+                // Processar lote em paralelo com retry
+                const batchPromises = batch.map(async (user, batchIndex) => {
+                    const globalIndex = i + batchIndex;
+                    let lastError = null;
+
+                    // Retry logic
+                    for (let retry = 0; retry <= maxRetries; retry++) {
+                        try {
+                            const serverName = user.server || defaultServer;
+                            
+                            const params = [
+                                `=name=${user.name}`,
+                                `=password=${user.password || ''}`,
+                                `=profile=${user.profile || 'default'}`,
+                                `=server=${serverName}`
+                            ];
+
+                            // Adicionar campos opcionais
+                            if (user.comment) params.push(`=comment=${user.comment}`);
+                            if (user.disabled !== undefined) params.push(`=disabled=${user.disabled}`);
+                            if (user.email) params.push(`=email=${user.email}`);
+                            if (user.address) params.push(`=address=${user.address}`);
+                            if (user['mac-address']) params.push(`=mac-address=${user['mac-address']}`);
+                            if (user['rate-limit']) params.push(`=rate-limit=${user['rate-limit']}`);
+                            
+                            // Limites de tempo e dados
+                            if (user['limit-uptime']) params.push(`=limit-uptime=${user['limit-uptime']}`);
+                            if (user['limit-bytes-in']) params.push(`=limit-bytes-in=${user['limit-bytes-in']}`);
+                            if (user['limit-bytes-out']) params.push(`=limit-bytes-out=${user['limit-bytes-out']}`);
+                            if (user['limit-bytes-total']) params.push(`=limit-bytes-total=${user['limit-bytes-total']}`);
+
+                            console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Tentativa ${retry + 1} - Criando usuário ${globalIndex + 1}/${users.length}: ${user.name}`);
+
+                            const result = await conn.write('/ip/hotspot/user/add', params);
+                            
+                            results.created++;
+                            results.successful.push({
+                                index: globalIndex + 1,
+                                username: user.name,
+                                profile: user.profile,
+                                id: result && result.length > 0 ? result[0] : 'unknown'
+                            });
+
+                            console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] ✅ Usuário ${globalIndex + 1}/${users.length} criado com sucesso: ${user.name}`);
+                            return { success: true, user: user.name, index: globalIndex + 1 };
+
+                        } catch (error) {
+                            lastError = error;
+                            
+                            if (retry < maxRetries) {
+                                console.warn(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] ⚠️ Tentativa ${retry + 1} falhou para usuário ${user.name}: ${error.message}. Tentando novamente...`);
+                                await new Promise(resolve => setTimeout(resolve, 200 * (retry + 1))); // Delay progressivo
+                            } else {
+                                console.error(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] ❌ Falha definitiva para usuário ${user.name} após ${maxRetries + 1} tentativas: ${error.message}`);
+                            }
+                        }
+                    }
+
+                    // Se chegou aqui, todas as tentativas falharam
+                    results.failed++;
+                    const errorMessage = lastError?.message || 'Erro desconhecido';
+                    results.errors.push({
+                        index: globalIndex + 1,
+                        username: user.name,
+                        error: errorMessage,
+                        retries: maxRetries + 1
+                    });
+
+                    return { success: false, user: user.name, index: globalIndex + 1, error: errorMessage };
+                });
+
+                // Aguardar conclusão do lote
+                await Promise.all(batchPromises);
+
+                // Delay entre lotes (exceto no último lote)
+                if (i + batchSize < users.length && delayBetweenBatches > 0) {
+                    console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Aguardando ${delayBetweenBatches}ms antes do próximo lote...`);
+                    await new Promise(resolve => setTimeout(resolve, delayBetweenBatches));
+                }
+            }
+
+            const successRate = ((results.created / results.total) * 100).toFixed(1);
+            console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Criação em massa concluída! Total: ${results.total}, Criados: ${results.created}, Falharam: ${results.failed} (${successRate}% sucesso)`);
+
+            return {
+                ...results,
+                summary: {
+                    total: results.total,
+                    created: results.created,
+                    failed: results.failed,
+                    successRate: successRate + '%'
+                }
+            };
+
+        } catch (error) {
+            console.error(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Erro crítico na criação em massa:`, error.message);
+            throw error;
+        }
     }
 }
 
