@@ -365,52 +365,164 @@ const sanitizeInput = (req, res, next) => {
     next();
 };
 
-// Middleware para rate limiting baseado no IP do MikroTik
-const rateLimiter = (() => {
-    const requests = new Map();
-    const WINDOW_SIZE = parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 60 * 1000; // 1 minuto por padrão
-    const MAX_REQUESTS = parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 200; // máximo de 200 requests por minuto por IP do MikroTik
+// Middleware para rate limiting baseado no IP do MikroTik com sliding window
+class RateLimiter {
+    constructor() {
+        this.requests = new Map();
+        this.WINDOW_SIZE = parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 60 * 1000; // 1 minuto
+        this.MAX_REQUESTS = parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 200; // máximo por minuto
+        this.BURST_LIMIT = parseInt(process.env.RATE_LIMIT_BURST) || 50; // limite de burst
+        this.BURST_WINDOW = parseInt(process.env.RATE_LIMIT_BURST_WINDOW_MS) || 10 * 1000; // 10 segundos
+        this.CLEANUP_INTERVAL = parseInt(process.env.RATE_LIMIT_CLEANUP_INTERVAL_MS) || 300 * 1000; // 5 minutos
+        
+        // Limpeza periódica
+        this.cleanupTimer = setInterval(() => this.cleanup(), this.CLEANUP_INTERVAL);
+    }
     
-    return (req, res, next) => {
-        // Usar IP do MikroTik como chave de rate limit se disponível, senão usar IP do cliente
-        const mikrotikIP = req.query.ip;
-        const clientIP = req.ip || req.connection.remoteAddress;
-        const rateLimitKey = mikrotikIP || clientIP;
+    cleanup() {
         const now = Date.now();
+        let cleanedCount = 0;
         
-        console.log(`[RATE-LIMITER] [${new Date().toISOString()}] Verificando rate limit para MikroTik IP: ${mikrotikIP || 'N/A'}, Client IP: ${clientIP}, Key: ${rateLimitKey}`);
-        
-        if (!requests.has(rateLimitKey)) {
-            requests.set(rateLimitKey, []);
+        for (const [key, data] of this.requests.entries()) {
+            // Remover entradas antigas
+            data.requests = data.requests.filter(timestamp => now - timestamp < this.WINDOW_SIZE);
+            
+            if (data.requests.length === 0) {
+                this.requests.delete(key);
+                cleanedCount++;
+            }
         }
         
-        const keyRequests = requests.get(rateLimitKey);
+        if (cleanedCount > 0) {
+            console.log(`[RATE-LIMITER] [${new Date().toISOString()}] Limpeza: removidas ${cleanedCount} entradas antigas`);
+        }
+    }
+    
+    getRateLimitKey(req) {
+        // Priorizar IP do MikroTik sobre IP do cliente
+        const mikrotikIP = req.query.ip || req.body?.ip;
+        const clientIP = req.ip || req.connection.remoteAddress || req.socket.remoteAddress;
         
-        // Remover requests antigas
-        const validRequests = keyRequests.filter(timestamp => now - timestamp < WINDOW_SIZE);
-        requests.set(rateLimitKey, validRequests);
+        // Se tiver IP do MikroTik, usar ele
+        if (mikrotikIP && /^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/.test(mikrotikIP)) {
+            return { key: `mikrotik:${mikrotikIP}`, type: 'MikroTik', ip: mikrotikIP };
+        }
         
-        if (validRequests.length >= MAX_REQUESTS) {
-            console.warn(`[RATE-LIMITER] [${new Date().toISOString()}] Rate limit excedido para ${mikrotikIP ? 'MikroTik IP' : 'Client IP'}: ${rateLimitKey}`);
+        // Senão usar IP do cliente
+        return { key: `client:${clientIP}`, type: 'Client', ip: clientIP };
+    }
+    
+    checkRateLimit(req, res, next) {
+        const { key, type, ip } = this.getRateLimitKey(req);
+        const now = Date.now();
+        
+        console.log(`[RATE-LIMITER] [${new Date().toISOString()}] Verificando rate limit para ${type} IP: ${ip}`);
+        
+        if (!this.requests.has(key)) {
+            this.requests.set(key, {
+                requests: [],
+                firstRequest: now,
+                blocked: false,
+                blockUntil: 0
+            });
+        }
+        
+        const data = this.requests.get(key);
+        
+        // Verificar se ainda está bloqueado
+        if (data.blocked && now < data.blockUntil) {
+            const remainingTime = Math.ceil((data.blockUntil - now) / 1000);
+            console.warn(`[RATE-LIMITER] [${new Date().toISOString()}] ${type} IP ${ip} ainda bloqueado por ${remainingTime}s`);
+            
             return res.status(429).json({
                 success: false,
-                error: `Muitas requisições para o ${mikrotikIP ? 'MikroTik' : 'cliente'} ${rateLimitKey}. Tente novamente em 1 minuto.`,
-                rateLimitKey: rateLimitKey,
-                requests: validRequests.length,
-                maxRequests: MAX_REQUESTS,
-                windowSizeMs: WINDOW_SIZE,
+                error: `Rate limit exceeded for ${type.toLowerCase()} ${ip}`,
+                message: `Too many requests. Try again in ${remainingTime} seconds.`,
+                rateLimitKey: key,
+                type: type.toLowerCase(),
+                ip: ip,
+                retryAfter: remainingTime,
+                timestamp: new Date().toISOString()
+            });
+        }
+        
+        // Remover requests antigas
+        data.requests = data.requests.filter(timestamp => now - timestamp < this.WINDOW_SIZE);
+        
+        // Verificar burst limit (últimos 10 segundos)
+        const recentRequests = data.requests.filter(timestamp => now - timestamp < this.BURST_WINDOW);
+        
+        if (recentRequests.length >= this.BURST_LIMIT) {
+            console.warn(`[RATE-LIMITER] [${new Date().toISOString()}] Burst limit excedido para ${type} IP: ${ip} (${recentRequests.length}/${this.BURST_LIMIT} em ${this.BURST_WINDOW/1000}s)`);
+            
+            // Bloquear por 1 minuto
+            data.blocked = true;
+            data.blockUntil = now + 60000;
+            
+            return res.status(429).json({
+                success: false,
+                error: `Burst limit exceeded for ${type.toLowerCase()} ${ip}`,
+                message: `Too many requests in short time. Blocked for 1 minute.`,
+                rateLimitKey: key,
+                type: type.toLowerCase(),
+                ip: ip,
+                burstRequests: recentRequests.length,
+                burstLimit: this.BURST_LIMIT,
+                retryAfter: 60,
+                timestamp: new Date().toISOString()
+            });
+        }
+        
+        // Verificar limit geral
+        if (data.requests.length >= this.MAX_REQUESTS) {
+            console.warn(`[RATE-LIMITER] [${new Date().toISOString()}] Rate limit geral excedido para ${type} IP: ${ip} (${data.requests.length}/${this.MAX_REQUESTS})`);
+            
+            const retryAfter = Math.ceil(this.WINDOW_SIZE / 1000);
+            
+            return res.status(429).json({
+                success: false,
+                error: `Rate limit exceeded for ${type.toLowerCase()} ${ip}`,
+                message: `Too many requests. Try again in ${retryAfter} seconds.`,
+                rateLimitKey: key,
+                type: type.toLowerCase(),
+                ip: ip,
+                requests: data.requests.length,
+                maxRequests: this.MAX_REQUESTS,
+                windowSizeSeconds: this.WINDOW_SIZE / 1000,
+                retryAfter: retryAfter,
                 timestamp: new Date().toISOString()
             });
         }
         
         // Adicionar request atual
-        validRequests.push(now);
-        requests.set(rateLimitKey, validRequests);
+        data.requests.push(now);
+        data.blocked = false;
         
-        console.log(`[RATE-LIMITER] [${new Date().toISOString()}] Rate limit OK para ${mikrotikIP ? 'MikroTik' : 'Client'} IP: ${rateLimitKey} (${validRequests.length}/${MAX_REQUESTS})`);
+        // Adicionar headers de rate limit
+        res.set({
+            'X-RateLimit-Limit': this.MAX_REQUESTS,
+            'X-RateLimit-Remaining': Math.max(0, this.MAX_REQUESTS - data.requests.length),
+            'X-RateLimit-Reset': new Date(now + this.WINDOW_SIZE).toISOString(),
+            'X-RateLimit-Type': type
+        });
+        
+        console.log(`[RATE-LIMITER] [${new Date().toISOString()}] Rate limit OK para ${type} IP: ${ip} (${data.requests.length}/${this.MAX_REQUESTS})`);
         next();
-    };
-})();
+    }
+    
+    shutdown() {
+        if (this.cleanupTimer) {
+            clearInterval(this.cleanupTimer);
+        }
+    }
+}
+
+const rateLimiterInstance = new RateLimiter();
+const rateLimiter = (req, res, next) => rateLimiterInstance.checkRateLimit(req, res, next);
+
+// Graceful shutdown
+process.on('SIGTERM', () => rateLimiterInstance.shutdown());
+process.on('SIGINT', () => rateLimiterInstance.shutdown());
 
 module.exports = {
     validateConnectionParams,
@@ -424,5 +536,6 @@ module.exports = {
     validateScheduleData,
     validateSystemData,
     sanitizeInput,
-    rateLimiter
+    rateLimiter,
+    rateLimiterInstance
 };

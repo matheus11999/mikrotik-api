@@ -8,7 +8,10 @@
     "dev": "nodemon app.js",
     "test": "echo \"Error: no test specified\" && exit 1",
     "lint": "eslint .",
-    "lint:fix": "eslint . --fix"
+    "lint:fix": "eslint . --fix",
+    "generate-token": "node generate-token.js",
+    "setup": "cp .env.example .env && npm run generate-token",
+    "security-test": "node -e \"console.log('Testing security middleware...'); require('./src/middleware/security');\""
   },
   "keywords": [
     "mikrotik",

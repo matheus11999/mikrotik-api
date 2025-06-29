@@ -28,6 +28,12 @@ const {
 } = require('./src/middleware/validation');
 
 const { authenticateApiToken } = require('./src/middleware/auth');
+const { 
+    securityLogger, 
+    bruteForceProtection, 
+    securityHeaders, 
+    advancedSanitization 
+} = require('./src/middleware/security');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -35,12 +41,25 @@ const PORT = process.env.PORT || 3000;
 // Middleware básico
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
-app.use(cors());
+
+// Configurar CORS de forma mais segura
+const corsOptions = {
+    origin: process.env.CORS_ORIGINS ? process.env.CORS_ORIGINS.split(',') : '*',
+    credentials: true,
+    optionsSuccessStatus: 200,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+};
+app.use(cors(corsOptions));
 
 // Servir arquivos estáticos
 app.use(express.static(path.join(__dirname, 'public')));
 
-// Middleware global
+// Middleware de segurança (ordem importante)
+app.use(securityHeaders);
+app.use(securityLogger);
+app.use(bruteForceProtection);
+app.use(advancedSanitization);
 app.use(sanitizeInput);
 app.use(rateLimiter);
 
@@ -53,7 +72,7 @@ app.use((req, res, next) => {
 // Middleware de autenticação (aplicado a todas as rotas exceto health check)
 app.use((req, res, next) => {
     // Pular autenticação para health check e arquivos estáticos
-    if (req.path === '/health' || req.path.startsWith('/css') || req.path.startsWith('/js') || req.path === '/') {
+    if (req.path === '/health' || req.path.startsWith('/css') || req.path.startsWith('/js') || req.path === '/' || req.path.startsWith('/favicon')) {
         return next();
     }
     authenticateApiToken(req, res, next);
