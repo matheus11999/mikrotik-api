@@ -159,7 +159,7 @@ const securityHeaders = (req, res, next) => {
         'X-Frame-Options': 'DENY',
         'X-XSS-Protection': '1; mode=block',
         'Referrer-Policy': 'strict-origin-when-cross-origin',
-        'Content-Security-Policy': \"default-src 'self'\",
+        'Content-Security-Policy': "default-src 'self'",
         'Strict-Transport-Security': 'max-age=31536000; includeSubDomains',
         'X-API-Version': '1.0.0',
         'X-Rate-Limit-Policy': 'per-mikrotik-ip'
