@@ -73,13 +73,16 @@ const validateHotspotUserData = (req, res, next) => {
         });
     }
     
-    // Validar nome do usuário (alfanumérico, hífens e underscores)
-    const nameRegex = /^[a-zA-Z0-9_-]+$/;
-    if (!nameRegex.test(userData.name)) {
+    // Validar nome do usuário (alfanumérico, hífens, underscores e dois pontos para MAC address)
+    const nameRegex = /^[a-zA-Z0-9_:-]+$/;
+    const macRegex = /^[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}:[0-9A-Fa-f]{2}$/;
+    
+    // Permitir MAC addresses ou usernames normais
+    if (!nameRegex.test(userData.name) && !macRegex.test(userData.name)) {
         console.error(`[VALIDATION] [${new Date().toISOString()}] Nome do usuário inválido: ${userData.name}`);
         return res.status(400).json({
             success: false,
-            error: 'Nome do usuário deve conter apenas letras, números, hífens e underscores',
+            error: 'Nome do usuário deve conter apenas letras, números, hífens, underscores ou ser um MAC address válido',
             timestamp: new Date().toISOString()
         });
     }
