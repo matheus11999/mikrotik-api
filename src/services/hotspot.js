@@ -106,6 +106,7 @@ class HotspotService {
             // Endereço específico
             if (userData.address) params.push(`=address=${userData.address}`);
             if (userData.mac_address) params.push(`=mac-address=${userData.mac_address}`);
+            if (userData['mac-address']) params.push(`=mac-address=${userData['mac-address']}`);
             
             // Limites de conexão
             if (userData.routes) params.push(`=routes=${userData.routes}`);
@@ -1017,6 +1018,7 @@ class HotspotService {
                             if (user.email) params.push(`=email=${user.email}`);
                             if (user.address) params.push(`=address=${user.address}`);
                             if (user['mac-address']) params.push(`=mac-address=${user['mac-address']}`);
+                            if (user.mac_address) params.push(`=mac-address=${user.mac_address}`);
                             if (user['rate-limit']) params.push(`=rate-limit=${user['rate-limit']}`);
                             
                             // Limites de tempo e dados
