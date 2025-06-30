@@ -835,6 +835,7 @@ class HotspotService {
             
             const results = {
                 deleteResult: null,
+                removeHostResult: null,
                 createResult: null,
                 success: false
             };
@@ -857,17 +858,82 @@ class HotspotService {
                 results.createResult = await this.createUser(host, username, password, userData, port);
                 results.success = true;
                 
-                console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Usuário gerenciado com sucesso: ${userData.name}`);
+                console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Usuário criado com sucesso: ${userData.name}`);
             } catch (createError) {
                 console.error(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Erro ao criar novo usuário:`, createError.message);
                 results.createResult = { success: false, error: createError.message };
                 throw createError;
             }
+
+            // 3. APÓS criação do usuário, remover host pelo MAC (conforme solicitado)
+            if (macAddress && results.success) {
+                try {
+                    console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Removendo host com MAC: ${macAddress} (após criação do usuário)`);
+                    results.removeHostResult = await this.removeHostByMac(host, username, password, macAddress, port);
+                    console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Host removido com sucesso: ${macAddress}`);
+                } catch (hostError) {
+                    console.warn(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Aviso: Não foi possível remover host:`, hostError.message);
+                    results.removeHostResult = { removed: false, error: hostError.message };
+                }
+            }
             
+            console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Usuário gerenciado com sucesso: ${userData.name}`);
             return results;
         } catch (error) {
             console.error(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Erro no gerenciamento do usuário:`, error.message);
             throw error;
+        }
+    }
+
+    // Remover host pelo MAC address
+    async removeHostByMac(host, username, password, macAddress, port = 8728) {
+        try {
+            const conn = await this.createConnection(host, username, password, port);
+            console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Executando comando: /ip hotspot host remove [find mac-address=${macAddress}]`);
+            
+            // Primeiro listar todos os hosts para encontrar os que correspondem ao MAC
+            const hosts = await conn.write('/ip/hotspot/host/print');
+            
+            // Normalizar MAC address para comparação (remover separadores e converter para maiúsculo)
+            const normalizedMac = macAddress.replace(/[:-]/g, '').toUpperCase();
+            
+            let removedCount = 0;
+            const removedHosts = [];
+            
+            for (const hostItem of hosts) {
+                const hostMac = hostItem['mac-address'] ? hostItem['mac-address'].replace(/[:-]/g, '').toUpperCase() : '';
+                
+                if (hostMac === normalizedMac) {
+                    console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Encontrado host para remover: ${hostItem['.id']} (MAC: ${hostItem['mac-address']})`);
+                    
+                    // Remover o host
+                    await conn.write('/ip/hotspot/host/remove', [`=.id=${hostItem['.id']}`]);
+                    removedHosts.push(hostItem);
+                    removedCount++;
+                    
+                    console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Host removido com sucesso: ${hostItem['.id']} (MAC: ${macAddress})`);
+                }
+            }
+            
+            if (removedCount > 0) {
+                return {
+                    removed: true,
+                    count: removedCount,
+                    removedHosts: removedHosts,
+                    message: `${removedCount} host(s) removido(s) com MAC ${macAddress}`
+                };
+            } else {
+                console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Nenhum host encontrado com MAC: ${macAddress}`);
+                return {
+                    removed: false,
+                    count: 0,
+                    removedHosts: [],
+                    message: `Nenhum host encontrado com MAC ${macAddress}`
+                };
+            }
+        } catch (error) {
+            console.error(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Erro ao remover host:`, error.message);
+            throw new Error(`Erro ao remover host: ${error.message}`);
         }
     }
 
