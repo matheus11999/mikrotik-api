@@ -122,6 +122,9 @@ app.put('/hotspot/users', validateConnectionParams, validateId, (req, res) => ho
 app.delete('/hotspot/users', validateConnectionParams, validateId, (req, res) => hotspotController.deleteUser(req, res));
 app.get('/hotspot/users/details', validateConnectionParams, validateId, (req, res) => hotspotController.getUserById(req, res));
 
+// Buscar usuário por username
+app.get('/hotspot/users/find', validateConnectionParams, (req, res) => hotspotController.findUserByUsername(req, res));
+
 // Criação em massa de usuários
 app.post('/hotspot/users/bulk', validateConnectionParams, (req, res) => hotspotController.createBulkUsers(req, res));
 

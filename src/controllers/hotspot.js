@@ -128,6 +128,39 @@ class HotspotController {
         }
     }
 
+    async findUserByUsername(req, res) {
+        try {
+            const { ip, username, password, port, search_username } = req.query;
+            
+            if (!search_username) {
+                return res.status(400).json({
+                    success: false,
+                    error: 'Parâmetro search_username é obrigatório',
+                    timestamp: new Date().toISOString()
+                });
+            }
+            
+            console.log(`[HOTSPOT-CONTROLLER] [${new Date().toISOString()}] Buscando usuário por username: ${search_username}`);
+            
+            const users = await this.hotspotService.findUserByUsername(ip, username, password, search_username, port);
+            
+            res.json({
+                success: true,
+                data: users,
+                count: users.length,
+                search_term: search_username,
+                timestamp: new Date().toISOString()
+            });
+        } catch (error) {
+            console.error(`[HOTSPOT-CONTROLLER] [${new Date().toISOString()}] Erro ao buscar usuário por username:`, error.message);
+            res.status(500).json({
+                success: false,
+                error: error.message,
+                timestamp: new Date().toISOString()
+            });
+        }
+    }
+
     // ==================== USUÁRIOS ATIVOS ====================
     
     async listActiveUsers(req, res) {

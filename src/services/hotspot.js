@@ -200,6 +200,51 @@ class HotspotService {
         }
     }
 
+    async findUserByUsername(host, username, password, searchUsername, port = 8728) {
+        try {
+            const conn = await this.createConnection(host, username, password, port);
+            console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Buscando usuário por username: ${searchUsername}`);
+            
+            // Use RouterOS query to find user by name (exact match)
+            // Escape special characters in username for RouterOS query
+            const escapedUsername = searchUsername.replace(/[\\]/g, '\\\\');
+            const users = await conn.write('/ip/hotspot/user/print', [`?name=${escapedUsername}`]);
+            
+            console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Encontrados ${users.length} usuários com username: ${searchUsername}`);
+            
+            if (users.length > 0) {
+                const user = users[0];
+                console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Usuário encontrado:`, {
+                    id: user['.id'],
+                    name: user.name,
+                    profile: user.profile,
+                    comment: user.comment ? user.comment.substring(0, 50) + '...' : 'N/A',
+                    hasComment: !!user.comment,
+                    disabled: user.disabled || 'false',
+                    hasPassword: !!user.password
+                });
+                
+                // Retornar dados completos para verificação
+                return users.map(u => ({
+                    ...u,
+                    // Garantir que campos essenciais existam
+                    name: u.name || '',
+                    password: u.password || '',
+                    profile: u.profile || 'default',
+                    comment: u.comment || '',
+                    disabled: u.disabled || 'false'
+                }));
+            } else {
+                console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Nenhum usuário encontrado com username: ${searchUsername}`);
+            }
+            
+            return users;
+        } catch (error) {
+            console.error(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Erro ao buscar usuário por username:`, error.message);
+            throw error;
+        }
+    }
+
     // ==================== USUÁRIOS ATIVOS ====================
     
     async listActiveUsers(host, username, password, port = 8728) {
