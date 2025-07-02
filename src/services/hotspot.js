@@ -214,6 +214,32 @@ class HotspotService {
             
             if (users.length > 0) {
                 const user = users[0];
+                
+                // Buscar informações de uptime verificando se o usuário está ativo
+                let uptime = "00:00:00";
+                let isActive = false;
+                let bytesIn = "0";
+                let bytesOut = "0";
+                let sessionId = null;
+                
+                try {
+                    const activeUsers = await conn.write('/ip/hotspot/active/print', [`?user=${escapedUsername}`]);
+                    if (activeUsers.length > 0) {
+                        const activeUser = activeUsers[0];
+                        uptime = activeUser.uptime || "00:00:00";
+                        isActive = true;
+                        bytesIn = activeUser['bytes-in'] || "0";
+                        bytesOut = activeUser['bytes-out'] || "0";
+                        sessionId = activeUser['.id'];
+                        
+                        console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Usuário ativo encontrado - Uptime: ${uptime}`);
+                    } else {
+                        console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Usuário não está ativo - Uptime: ${uptime}`);
+                    }
+                } catch (activeError) {
+                    console.warn(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Erro ao buscar usuário ativo (não crítico):`, activeError.message);
+                }
+                
                 console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Usuário encontrado:`, {
                     id: user['.id'],
                     name: user.name,
@@ -221,10 +247,12 @@ class HotspotService {
                     comment: user.comment ? user.comment.substring(0, 50) + '...' : 'N/A',
                     hasComment: !!user.comment,
                     disabled: user.disabled || 'false',
-                    hasPassword: !!user.password
+                    hasPassword: !!user.password,
+                    uptime: uptime,
+                    isActive: isActive
                 });
                 
-                // Retornar dados completos para verificação
+                // Retornar dados completos para verificação, incluindo uptime
                 return users.map(u => ({
                     ...u,
                     // Garantir que campos essenciais existam
@@ -232,7 +260,13 @@ class HotspotService {
                     password: u.password || '',
                     profile: u.profile || 'default',
                     comment: u.comment || '',
-                    disabled: u.disabled || 'false'
+                    disabled: u.disabled || 'false',
+                    // Adicionar informações de sessão
+                    uptime: uptime,
+                    isActive: isActive,
+                    bytesIn: bytesIn,
+                    bytesOut: bytesOut,
+                    sessionId: sessionId
                 }));
             } else {
                 console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Nenhum usuário encontrado com username: ${searchUsername}`);
