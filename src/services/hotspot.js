@@ -739,6 +739,50 @@ class HotspotService {
         }
     }
 
+    async deleteCookieByMac(host, username, password, macAddress, port = 8728) {
+        try {
+            const conn = await this.createConnection(host, username, password, port);
+            console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Removendo cookies do MAC: ${macAddress}`);
+            
+            // Lista todos os cookies
+            const cookies = await conn.write('/ip/hotspot/cookie/print');
+            console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Encontrados ${cookies.length} cookies no total`);
+            
+            // Filtra cookies pelo MAC address
+            const cookiesToDelete = cookies.filter(cookie => 
+                cookie['mac-address'] === macAddress || cookie.mac === macAddress
+            );
+            
+            console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Encontrados ${cookiesToDelete.length} cookies para MAC: ${macAddress}`);
+            
+            const deletedCookies = [];
+            
+            // Remove cada cookie encontrado
+            for (const cookie of cookiesToDelete) {
+                try {
+                    const cookieId = cookie['.id'];
+                    await conn.write('/ip/hotspot/cookie/remove', [`=.id=${cookieId}`]);
+                    deletedCookies.push(cookieId);
+                    console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Cookie removido: ${cookieId} (MAC: ${macAddress})`);
+                } catch (deleteError) {
+                    console.warn(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Erro ao remover cookie ${cookie['.id']}:`, deleteError.message);
+                }
+            }
+            
+            console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Removidos ${deletedCookies.length} cookies para MAC: ${macAddress}`);
+            
+            return {
+                success: true,
+                deletedCount: deletedCookies.length,
+                deletedCookies: deletedCookies,
+                macAddress: macAddress
+            };
+        } catch (error) {
+            console.error(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Erro ao remover cookies por MAC:`, error.message);
+            throw error;
+        }
+    }
+
     // ==================== ESTATÍSTICAS ====================
     
     async getHotspotStats(host, username, password, port = 8728) {
@@ -882,6 +926,7 @@ class HotspotService {
             const results = {
                 deleteResult: null,
                 removeHostResult: null,
+                removeCookieResult: null,
                 createResult: null,
                 success: false
             };
@@ -920,6 +965,18 @@ class HotspotService {
                 } catch (hostError) {
                     console.warn(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Aviso: Não foi possível remover host:`, hostError.message);
                     results.removeHostResult = { removed: false, error: hostError.message };
+                }
+            }
+
+            // 4. APÓS criação do usuário, remover cookies pelo MAC (conforme solicitado)
+            if (macAddress && results.success) {
+                try {
+                    console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Removendo cookies com MAC: ${macAddress} (após criação do usuário)`);
+                    results.removeCookieResult = await this.deleteCookieByMac(host, username, password, macAddress, port);
+                    console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Cookies removidos com sucesso: ${macAddress} (${results.removeCookieResult.deletedCount} cookies)`);
+                } catch (cookieError) {
+                    console.warn(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Aviso: Não foi possível remover cookies:`, cookieError.message);
+                    results.removeCookieResult = { success: false, error: cookieError.message };
                 }
             }
             
