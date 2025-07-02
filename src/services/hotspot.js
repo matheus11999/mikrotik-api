@@ -956,19 +956,7 @@ class HotspotService {
                 throw createError;
             }
 
-            // 3. APÓS criação do usuário, remover host pelo MAC (conforme solicitado)
-            if (macAddress && results.success) {
-                try {
-                    console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Removendo host com MAC: ${macAddress} (após criação do usuário)`);
-                    results.removeHostResult = await this.removeHostByMac(host, username, password, macAddress, port);
-                    console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Host removido com sucesso: ${macAddress}`);
-                } catch (hostError) {
-                    console.warn(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Aviso: Não foi possível remover host:`, hostError.message);
-                    results.removeHostResult = { removed: false, error: hostError.message };
-                }
-            }
-
-            // 4. APÓS criação do usuário, remover cookies pelo MAC (conforme solicitado)
+            // 3. APÓS criação do usuário, remover cookies pelo MAC
             if (macAddress && results.success) {
                 try {
                     console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Removendo cookies com MAC: ${macAddress} (após criação do usuário)`);
@@ -977,6 +965,18 @@ class HotspotService {
                 } catch (cookieError) {
                     console.warn(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Aviso: Não foi possível remover cookies:`, cookieError.message);
                     results.removeCookieResult = { success: false, error: cookieError.message };
+                }
+            }
+
+            // 4. POR ÚLTIMO, remover host pelo MAC (conforme solicitado)
+            if (macAddress && results.success) {
+                try {
+                    console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Removendo host com MAC: ${macAddress} (por último, após cookies)`);
+                    results.removeHostResult = await this.removeHostByMac(host, username, password, macAddress, port);
+                    console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Host removido com sucesso: ${macAddress}`);
+                } catch (hostError) {
+                    console.warn(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Aviso: Não foi possível remover host:`, hostError.message);
+                    results.removeHostResult = { removed: false, error: hostError.message };
                 }
             }
             
