@@ -1,7 +1,9 @@
 const { RouterOSAPI } = require('node-routeros');
+const ConnectionManager = require('./connection-manager');
 
-class HotspotService {
+class HotspotImprovedService {
     constructor() {
+        this.connectionManager = new ConnectionManager();
         this.connections = new Map();
         this.connectionAttempts = new Map();
         this.blacklistedConnections = new Map();
@@ -266,81 +268,351 @@ class HotspotService {
     // ==================== USUÁRIOS HOTSPOT ====================
     
     async listUsers(host, username, password, port = 8728) {
-        return this.executeWithRetry(async (conn) => {
-            console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Listando usuários do hotspot para ${host}`);
+        try {
+            const conn = await this.getConnection(host, username, password, port);
+            console.log(`[HOTSPOT-IMPROVED] [${new Date().toISOString()}] Listando usuários do hotspot para ${host}`);
             
             const users = await conn.write('/ip/hotspot/user/print');
-            console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Encontrados ${users.length} usuários no hotspot`);
+            console.log(`[HOTSPOT-IMPROVED] [${new Date().toISOString()}] Encontrados ${users.length} usuários no hotspot`);
             
             return users;
-        }, host, username, password, port);
+        } catch (error) {
+            console.error(`[HOTSPOT-IMPROVED] [${new Date().toISOString()}] Erro ao listar usuários:`, error.message);
+            throw this.enhanceError(error, 'listUsers', { host, port });
+        }
     }
 
     async createUser(host, username, password, userData, port = 8728) {
-        return this.executeWithRetry(async (conn) => {
-            console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Criando usuário do hotspot: ${userData.name}`);
+        try {
+            const conn = await this.getConnection(host, username, password, port);
+            console.log(`[HOTSPOT-IMPROVED] [${new Date().toISOString()}] Criando usuário do hotspot: ${userData.name}`);
             
             // Verificar servidores disponíveis se não foi especificado um servidor
             let serverName = userData.server;
             if (!serverName) {
-                console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Servidor não especificado, verificando servidores disponíveis...`);
+                console.log(`[HOTSPOT-IMPROVED] [${new Date().toISOString()}] Servidor não especificado, verificando servidores disponíveis...`);
                 try {
                     const servers = await conn.write('/ip/hotspot/print');
-                    console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Servidores encontrados:`, servers.map(s => s.name));
+                    console.log(`[HOTSPOT-IMPROVED] [${new Date().toISOString()}] Servidores encontrados:`, servers.map(s => s.name));
                     
                     if (servers.length > 0) {
                         serverName = servers[0].name;
-                        console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Usando primeiro servidor disponível: ${serverName}`);
+                        console.log(`[HOTSPOT-IMPROVED] [${new Date().toISOString()}] Usando primeiro servidor disponível: ${serverName}`);
                     } else {
-                        throw new Error('Nenhum servidor hotspot configurado. Configure um servidor hotspot primeiro.');
+                        const error = new Error('Nenhum servidor hotspot configurado. Configure um servidor hotspot primeiro.');
+                        error.type = 'CONFIGURATION_ERROR';
+                        error.code = 'NO_HOTSPOT_SERVER';
+                        error.statusCode = 400;
+                        error.userMessage = 'Nenhum servidor hotspot está configurado no MikroTik.';
+                        throw error;
                     }
                 } catch (serverError) {
-                    console.error(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Erro ao verificar servidores:`, serverError.message);
-                    throw serverError;
+                    if (serverError.type) throw serverError; // Re-lançar erros nossos
+                    throw this.enhanceError(serverError, 'checkServers', { host, port });
                 }
             }
+            
+            const params = [
+                `=name=${userData.name}`,
+                `=password=${userData.password || ''}`,
+                `=profile=${userData.profile || 'default'}`,
+                `=server=${serverName}`
+            ];
 
-            // Preparar dados do usuário
-            const userParams = {
-                name: userData.name,
-                password: userData.password || '',
-                profile: userData.profile || 'default',
-                server: serverName
-            };
-
-            // Adicionar campos opcionais se fornecidos
-            if (userData.comment) userParams.comment = userData.comment;
-            if (userData.disabled !== undefined) userParams.disabled = userData.disabled;
-            if (userData['limit-uptime']) userParams['limit-uptime'] = userData['limit-uptime'];
-            if (userData['limit-bytes-in']) userParams['limit-bytes-in'] = userData['limit-bytes-in'];
-            if (userData['limit-bytes-out']) userParams['limit-bytes-out'] = userData['limit-bytes-out'];
-            if (userData['limit-bytes-total']) userParams['limit-bytes-total'] = userData['limit-bytes-total'];
-
-            console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Parâmetros do usuário:`, userParams);
-
-            const result = await conn.write('/ip/hotspot/user/add', userParams);
-            console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Usuário criado com sucesso: ${userData.name}`);
+            // Campos opcionais
+            if (userData.comment) params.push(`=comment=${userData.comment}`);
+            if (userData.disabled !== undefined) params.push(`=disabled=${userData.disabled}`);
+            if (userData.email) params.push(`=email=${userData.email}`);
+            if (userData.limit_uptime) params.push(`=limit-uptime=${userData.limit_uptime}`);
+            if (userData.limit_bytes_in) params.push(`=limit-bytes-in=${userData.limit_bytes_in}`);
+            if (userData.limit_bytes_out) params.push(`=limit-bytes-out=${userData.limit_bytes_out}`);
+            if (userData.limit_bytes_total) params.push(`=limit-bytes-total=${userData.limit_bytes_total}`);
+            if (userData.address) params.push(`=address=${userData.address}`);
+            if (userData.mac_address) params.push(`=mac-address=${userData.mac_address}`);
+            if (userData['mac-address']) params.push(`=mac-address=${userData['mac-address']}`);
+            if (userData.routes) params.push(`=routes=${userData.routes}`);
+            if (userData.rate_limit) params.push(`=rate-limit=${userData.rate_limit}`);
+            
+            console.log(`[HOTSPOT-IMPROVED] [${new Date().toISOString()}] Parâmetros do usuário:`, params);
+            
+            const result = await conn.write('/ip/hotspot/user/add', params);
+            console.log(`[HOTSPOT-IMPROVED] [${new Date().toISOString()}] Usuário criado com sucesso: ${userData.name}`);
             
             return result;
-        }, host, username, password, port);
+        } catch (error) {
+            console.error(`[HOTSPOT-IMPROVED] [${new Date().toISOString()}] Erro ao criar usuário:`, error.message);
+            if (error.type) throw error; // Re-lançar erros nossos
+            throw this.enhanceError(error, 'createUser', { host, port, userName: userData.name });
+        }
     }
 
-    // Adicionar métodos similares para outras operações...
+    async updateUser(host, username, password, userId, userData, port = 8728) {
+        try {
+            const conn = await this.getConnection(host, username, password, port);
+            console.log(`[HOTSPOT-IMPROVED] [${new Date().toISOString()}] Atualizando usuário do hotspot ID: ${userId}`);
+            
+            const params = [`=.id=${userId}`];
+            
+            // Campos atualizáveis
+            if (userData.name) params.push(`=name=${userData.name}`);
+            if (userData.password !== undefined) params.push(`=password=${userData.password}`);
+            if (userData.profile) params.push(`=profile=${userData.profile}`);
+            if (userData.server) params.push(`=server=${userData.server}`);
+            if (userData.comment !== undefined) params.push(`=comment=${userData.comment}`);
+            if (userData.disabled !== undefined) params.push(`=disabled=${userData.disabled}`);
+            if (userData.email !== undefined) params.push(`=email=${userData.email}`);
+            if (userData.limit_uptime !== undefined) params.push(`=limit-uptime=${userData.limit_uptime}`);
+            if (userData.limit_bytes_in !== undefined) params.push(`=limit-bytes-in=${userData.limit_bytes_in}`);
+            if (userData.limit_bytes_out !== undefined) params.push(`=limit-bytes-out=${userData.limit_bytes_out}`);
+            if (userData.limit_bytes_total !== undefined) params.push(`=limit-bytes-total=${userData.limit_bytes_total}`);
+            if (userData.address !== undefined) params.push(`=address=${userData.address}`);
+            if (userData.mac_address !== undefined) params.push(`=mac-address=${userData.mac_address}`);
+            if (userData.routes !== undefined) params.push(`=routes=${userData.routes}`);
+            if (userData.rate_limit !== undefined) params.push(`=rate-limit=${userData.rate_limit}`);
+            
+            console.log(`[HOTSPOT-IMPROVED] [${new Date().toISOString()}] Parâmetros de atualização:`, params);
+            
+            const result = await conn.write('/ip/hotspot/user/set', params);
+            console.log(`[HOTSPOT-IMPROVED] [${new Date().toISOString()}] Usuário atualizado com sucesso ID: ${userId}`);
+            
+            return result;
+        } catch (error) {
+            console.error(`[HOTSPOT-IMPROVED] [${new Date().toISOString()}] Erro ao atualizar usuário:`, error.message);
+            if (error.type) throw error;
+            throw this.enhanceError(error, 'updateUser', { host, port, userId });
+        }
+    }
+
+    async deleteUser(host, username, password, userId, port = 8728) {
+        try {
+            const conn = await this.getConnection(host, username, password, port);
+            console.log(`[HOTSPOT-IMPROVED] [${new Date().toISOString()}] Removendo usuário do hotspot ID: ${userId}`);
+            
+            const result = await conn.write('/ip/hotspot/user/remove', [`=.id=${userId}`]);
+            console.log(`[HOTSPOT-IMPROVED] [${new Date().toISOString()}] Usuário removido com sucesso ID: ${userId}`);
+            
+            return result;
+        } catch (error) {
+            console.error(`[HOTSPOT-IMPROVED] [${new Date().toISOString()}] Erro ao remover usuário:`, error.message);
+            if (error.type) throw error;
+            throw this.enhanceError(error, 'deleteUser', { host, port, userId });
+        }
+    }
+
+    async getUserById(host, username, password, userId, port = 8728) {
+        try {
+            const conn = await this.getConnection(host, username, password, port);
+            console.log(`[HOTSPOT-IMPROVED] [${new Date().toISOString()}] Buscando usuário do hotspot ID: ${userId}`);
+            
+            const users = await conn.write('/ip/hotspot/user/print', [`=.id=${userId}`]);
+            
+            if (users.length === 0) {
+                const error = new Error(`Usuário com ID ${userId} não encontrado`);
+                error.type = 'NOT_FOUND_ERROR';
+                error.code = 'USER_NOT_FOUND';
+                error.statusCode = 404;
+                error.userMessage = `Usuário com ID ${userId} não foi encontrado.`;
+                throw error;
+            }
+            
+            console.log(`[HOTSPOT-IMPROVED] [${new Date().toISOString()}] Usuário encontrado: ${users[0].name}`);
+            return users[0];
+        } catch (error) {
+            console.error(`[HOTSPOT-IMPROVED] [${new Date().toISOString()}] Erro ao buscar usuário:`, error.message);
+            if (error.type) throw error;
+            throw this.enhanceError(error, 'getUserById', { host, port, userId });
+        }
+    }
+
+    async findUserByUsername(host, username, password, searchUsername, port = 8728) {
+        try {
+            const conn = await this.getConnection(host, username, password, port);
+            console.log(`[HOTSPOT-IMPROVED] [${new Date().toISOString()}] Buscando usuário por username: ${searchUsername}`);
+            
+            const users = await conn.write('/ip/hotspot/user/print');
+            const matchingUsers = users.filter(user => 
+                user.name && user.name.toLowerCase().includes(searchUsername.toLowerCase())
+            );
+            
+            console.log(`[HOTSPOT-IMPROVED] [${new Date().toISOString()}] Encontrados ${matchingUsers.length} usuários com username similar a: ${searchUsername}`);
+            return matchingUsers;
+        } catch (error) {
+            console.error(`[HOTSPOT-IMPROVED] [${new Date().toISOString()}] Erro ao buscar usuário por username:`, error.message);
+            if (error.type) throw error;
+            throw this.enhanceError(error, 'findUserByUsername', { host, port, searchUsername });
+        }
+    }
+
+    // ==================== USUÁRIOS ATIVOS ====================
+    
+    async listActiveUsers(host, username, password, port = 8728) {
+        try {
+            const conn = await this.getConnection(host, username, password, port);
+            console.log(`[HOTSPOT-IMPROVED] [${new Date().toISOString()}] Listando usuários ativos para ${host}`);
+            
+            const activeUsers = await conn.write('/ip/hotspot/active/print');
+            console.log(`[HOTSPOT-IMPROVED] [${new Date().toISOString()}] Encontrados ${activeUsers.length} usuários ativos`);
+            
+            return activeUsers;
+        } catch (error) {
+            console.error(`[HOTSPOT-IMPROVED] [${new Date().toISOString()}] Erro ao listar usuários ativos:`, error.message);
+            if (error.type) throw error;
+            throw this.enhanceError(error, 'listActiveUsers', { host, port });
+        }
+    }
+
+    async disconnectActiveUser(host, username, password, activeId, port = 8728) {
+        try {
+            const conn = await this.getConnection(host, username, password, port);
+            console.log(`[HOTSPOT-IMPROVED] [${new Date().toISOString()}] Desconectando usuário ativo ID: ${activeId}`);
+            
+            const result = await conn.write('/ip/hotspot/active/remove', [`=.id=${activeId}`]);
+            console.log(`[HOTSPOT-IMPROVED] [${new Date().toISOString()}] Usuário desconectado com sucesso ID: ${activeId}`);
+            
+            return result;
+        } catch (error) {
+            console.error(`[HOTSPOT-IMPROVED] [${new Date().toISOString()}] Erro ao desconectar usuário ativo:`, error.message);
+            if (error.type) throw error;
+            throw this.enhanceError(error, 'disconnectActiveUser', { host, port, activeId });
+        }
+    }
+
+    // ==================== TESTE DE CONEXÃO AVANÇADO ====================
+    
     async testConnection(host, username, password, port = 8728) {
-        return this.executeWithRetry(async (conn) => {
-            console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Testando conexão com ${host}:${port}`);
+        try {
+            console.log(`[HOTSPOT-IMPROVED] [${new Date().toISOString()}] 🧪 Iniciando teste de conexão avançado para ${host}:${port}`);
             
-            const identity = await conn.write('/system/identity/print');
-            const resource = await conn.write('/system/resource/print');
+            const result = await this.connectionManager.testConnection(host, username, password, port);
             
-            return {
-                success: true,
-                identity: identity[0],
-                resource: resource[0],
+            if (result.success) {
+                console.log(`[HOTSPOT-IMPROVED] [${new Date().toISOString()}] ✅ Teste de conexão bem-sucedido`);
+            } else {
+                console.error(`[HOTSPOT-IMPROVED] [${new Date().toISOString()}] ❌ Teste de conexão falhou: ${result.error.message}`);
+            }
+            
+            return result;
+        } catch (error) {
+            console.error(`[HOTSPOT-IMPROVED] [${new Date().toISOString()}] Erro crítico no teste de conexão:`, error.message);
+            if (error.type) throw error;
+            throw this.enhanceError(error, 'testConnection', { host, port });
+        }
+    }
+
+    // ==================== PROFILES ====================
+    
+    async listProfiles(host, username, password, port = 8728) {
+        try {
+            const conn = await this.getConnection(host, username, password, port);
+            console.log(`[HOTSPOT-IMPROVED] [${new Date().toISOString()}] Listando perfis do hotspot para ${host}`);
+            
+            const profiles = await conn.write('/ip/hotspot/user-profile/print');
+            console.log(`[HOTSPOT-IMPROVED] [${new Date().toISOString()}] Encontrados ${profiles.length} perfis`);
+            
+            return profiles;
+        } catch (error) {
+            console.error(`[HOTSPOT-IMPROVED] [${new Date().toISOString()}] Erro ao listar perfis:`, error.message);
+            if (error.type) throw error;
+            throw this.enhanceError(error, 'listProfiles', { host, port });
+        }
+    }
+
+    // ==================== ESTATÍSTICAS ====================
+    
+    async getStats(host, username, password, port = 8728) {
+        try {
+            const conn = await this.getConnection(host, username, password, port);
+            console.log(`[HOTSPOT-IMPROVED] [${new Date().toISOString()}] Coletando estatísticas para ${host}`);
+            
+            const [users, activeUsers, profiles, servers] = await Promise.all([
+                conn.write('/ip/hotspot/user/print'),
+                conn.write('/ip/hotspot/active/print'),
+                conn.write('/ip/hotspot/user-profile/print'),
+                conn.write('/ip/hotspot/print')
+            ]);
+            
+            const stats = {
+                totalUsers: users.length,
+                activeUsers: activeUsers.length,
+                profiles: profiles.length,
+                servers: servers.length,
+                connectionManager: this.connectionManager.getStats(),
                 timestamp: new Date().toISOString()
             };
-        }, host, username, password, port);
+            
+            console.log(`[HOTSPOT-IMPROVED] [${new Date().toISOString()}] Estatísticas coletadas:`, stats);
+            return stats;
+        } catch (error) {
+            console.error(`[HOTSPOT-IMPROVED] [${new Date().toISOString()}] Erro ao coletar estatísticas:`, error.message);
+            if (error.type) throw error;
+            throw this.enhanceError(error, 'getStats', { host, port });
+        }
+    }
+
+    // ==================== GESTÃO DE CONEXÕES ====================
+    
+    async closeAllConnections() {
+        return await this.connectionManager.closeAllConnections();
+    }
+    
+    getConnectionStats() {
+        return this.connectionManager.getStats();
+    }
+
+    /**
+     * Wrapper para obter conexão com tratamento de erro melhorado
+     */
+    async getConnection(host, username, password, port = 8728) {
+        try {
+            return await this.connectionManager.getConnection(host, username, password, port);
+        } catch (error) {
+            // Converter erro para formato consistente
+            throw this.enhanceError(error, 'connection', { host, username, port });
+        }
+    }
+
+    /**
+     * Aprimora erros com informações adicionais e códigos específicos
+     */
+    enhanceError(error, operation, context = {}) {
+        // Se já é um erro nosso, apenas repassar
+        if (error.type && error.code) {
+            return error;
+        }
+
+        const enhanced = new Error(error.message);
+        enhanced.operation = operation;
+        enhanced.context = context;
+        enhanced.timestamp = new Date().toISOString();
+        enhanced.originalError = error;
+
+        // Classificar erro baseado na mensagem
+        const message = error.message.toLowerCase();
+        
+        if (message.includes('authentication') || message.includes('login') || message.includes('password')) {
+            enhanced.type = 'AUTHENTICATION_ERROR';
+            enhanced.code = 'AUTH_FAILED';
+            enhanced.statusCode = 401;
+            enhanced.userMessage = 'Credenciais inválidas. Verifique usuário e senha.';
+        } else if (message.includes('timeout') || message.includes('timed out')) {
+            enhanced.type = 'TIMEOUT_ERROR';
+            enhanced.code = 'CONNECTION_TIMEOUT';
+            enhanced.statusCode = 408;
+            enhanced.userMessage = 'Timeout na conexão. Verifique a conectividade de rede.';
+        } else if (message.includes('refused') || message.includes('unreachable')) {
+            enhanced.type = 'NETWORK_ERROR';
+            enhanced.code = 'CONNECTION_REFUSED';
+            enhanced.statusCode = 503;
+            enhanced.userMessage = 'Não foi possível conectar ao MikroTik. Verifique IP e porta.';
+        } else {
+            enhanced.type = 'UNKNOWN_ERROR';
+            enhanced.code = 'OPERATION_FAILED';
+            enhanced.statusCode = 500;
+            enhanced.userMessage = 'Erro interno na operação.';
+        }
+
+        return enhanced;
     }
 }
 
-module.exports = HotspotService;
+module.exports = HotspotImprovedService;
