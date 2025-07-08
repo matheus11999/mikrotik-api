@@ -65,25 +65,9 @@ class IpBindingService {
             const conn = await this.createConnection(host, username, password, port);
             console.log(`[IP-BINDING-SERVICE] [${new Date().toISOString()}] Criando IP binding para MAC: ${bindingData.macAddress}`);
             
-            // Verificar servidores disponíveis se não foi especificado
-            let serverName = bindingData.server;
-            if (!serverName) {
-                console.log(`[IP-BINDING-SERVICE] [${new Date().toISOString()}] Servidor não especificado, verificando servidores disponíveis...`);
-                try {
-                    const servers = await conn.write('/ip/hotspot/print');
-                    console.log(`[IP-BINDING-SERVICE] [${new Date().toISOString()}] Servidores encontrados:`, servers.map(s => s.name));
-                    
-                    if (servers.length > 0) {
-                        serverName = servers[0].name;
-                        console.log(`[IP-BINDING-SERVICE] [${new Date().toISOString()}] Usando primeiro servidor disponível: ${serverName}`);
-                    } else {
-                        throw new Error('Nenhum servidor hotspot configurado. Configure um servidor hotspot primeiro.');
-                    }
-                } catch (serverError) {
-                    console.error(`[IP-BINDING-SERVICE] [${new Date().toISOString()}] Erro ao verificar servidores:`, serverError.message);
-                    throw new Error(`Erro ao verificar servidores hotspot: ${serverError.message}`);
-                }
-            }
+            // Usar 'all' como servidor padrão para IP binding
+            let serverName = bindingData.server || 'all';
+            console.log(`[IP-BINDING-SERVICE] [${new Date().toISOString()}] Usando servidor: ${serverName}`);
 
             const params = [
                 `=mac-address=${bindingData.macAddress}`,
@@ -276,11 +260,27 @@ class IpBindingService {
             const comment = `PIX-${paymentData.payment_id} | Plano: ${paymentData.plano_nome} | Valor: R$ ${parseFloat(paymentData.plano_valor).toFixed(2)} | Criado: ${createdAtStr} | Expira: ${expiresAtStr}`;
             
             // Verificar se já existe IP binding para este MAC
+            console.log(`[IP-BINDING-SERVICE] [${new Date().toISOString()}] Verificando IP bindings existentes para MAC: ${formattedMac}...`);
             const existingBindings = await this.findIpBindingByMac(host, username, password, formattedMac, port);
             
             if (existingBindings.length > 0) {
-                console.log(`[IP-BINDING-SERVICE] [${new Date().toISOString()}] Encontrado IP binding existente para MAC: ${formattedMac}, deletando...`);
-                await this.deleteIpBindingByMac(host, username, password, formattedMac, port);
+                console.log(`[IP-BINDING-SERVICE] [${new Date().toISOString()}] Encontrados ${existingBindings.length} IP binding(s) existente(s) para MAC: ${formattedMac}`);
+                existingBindings.forEach((binding, index) => {
+                    console.log(`[IP-BINDING-SERVICE] [${new Date().toISOString()}]   ${index + 1}. ID: ${binding['.id']} | Tipo: ${binding.type} | Comentário: ${binding.comment?.substring(0, 50) || 'N/A'}...`);
+                });
+                
+                console.log(`[IP-BINDING-SERVICE] [${new Date().toISOString()}] Deletando IP binding(s) existente(s)...`);
+                const deleteResult = await this.deleteIpBindingByMac(host, username, password, formattedMac, port);
+                
+                if (deleteResult.deleted) {
+                    console.log(`[IP-BINDING-SERVICE] [${new Date().toISOString()}] ✅ ${deleteResult.deletedCount} IP binding(s) deletado(s) com sucesso`);
+                    // Aguardar um pouco para garantir que a operação foi concluída
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                } else {
+                    console.log(`[IP-BINDING-SERVICE] [${new Date().toISOString()}] ⚠️ Nenhum IP binding foi deletado`);
+                }
+            } else {
+                console.log(`[IP-BINDING-SERVICE] [${new Date().toISOString()}] ✅ Nenhum IP binding existente encontrado para MAC: ${formattedMac}`);
             }
             
             // Dados do IP binding
