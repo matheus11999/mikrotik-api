@@ -11,6 +11,7 @@ const SchedulesController = require('./src/controllers/schedules');
 const FilesController = require('./src/controllers/files');
 const TemplateController = require('./src/controllers/template');
 const IpBindingController = require('./src/controllers/ipBinding');
+const UserAuthController = require('./src/controllers/userAuth');
 
 // Middleware
 const {
@@ -87,6 +88,7 @@ const schedulesController = new SchedulesController();
 const filesController = FilesController;
 const templateController = TemplateController;
 const ipBindingController = IpBindingController;
+const userAuthController = new UserAuthController();
 
 // ==================== ROTAS PRINCIPAIS ====================
 
@@ -318,6 +320,14 @@ app.post('/ip-binding/test-connection', validateConnectionParams, (req, res) => 
 // Tool fetch direto
 app.post('/tools/fetch', validateConnectionParams, (req, res) => systemController.executeToolFetch(req, res));
 
+// ==================== ROTAS DE AUTENTICAÇÃO DE USUÁRIO ====================
+
+// Verificar autenticação de usuário e atualizar comentário
+app.post('/user-auth/check', validateConnectionParams, (req, res) => userAuthController.checkUserAuth(req, res));
+
+// Webhook para autenticação de usuário (pode ser chamado pelo MikroTik)
+app.post('/user-auth/webhook', (req, res) => userAuthController.handleAuthWebhook(req, res));
+
 // ==================== MIDDLEWARE DE ERRO GLOBAL ====================
 
 app.use((error, req, res, next) => {
@@ -381,6 +391,10 @@ app.use((req, res) => {
             ipbinding: [
                 'POST /ip-binding/create-from-payment',
                 'POST /ip-binding/test-connection'
+            ],
+            userauth: [
+                'POST /user-auth/check',
+                'POST /user-auth/webhook'
             ]
         },
         timestamp: new Date().toISOString()

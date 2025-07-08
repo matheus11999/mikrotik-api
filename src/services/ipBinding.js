@@ -228,18 +228,27 @@ class IpBindingService {
             const normalizedMac = macAddress.replace(/[:-]/g, '').toUpperCase();
             const formattedMac = normalizedMac.match(/.{1,2}/g).join(':');
             
-            // Calcular data de expiração baseada no plano
+            // Calcular data de expiração baseada no plano (timezone Manaus)
             const createdAt = new Date();
+            createdAt.setHours(createdAt.getHours() - 4); // UTC-4 (Manaus)
             const expiresAt = new Date(createdAt);
             
-            // Extrair tempo do session_timeout (formato: HH:MM:SS ou duração em segundos)
+            // Extrair tempo do session_timeout (formato: HH:MM:SS, duração em segundos, ou formato como "1h")
             let sessionTimeoutSeconds = 0;
             if (paymentData.plano_session_timeout) {
-                const timeout = paymentData.plano_session_timeout;
+                const timeout = paymentData.plano_session_timeout.toString().toLowerCase();
                 if (timeout.includes(':')) {
                     // Formato HH:MM:SS
                     const parts = timeout.split(':');
                     sessionTimeoutSeconds = parseInt(parts[0]) * 3600 + parseInt(parts[1]) * 60 + parseInt(parts[2]);
+                } else if (timeout.endsWith('h')) {
+                    // Formato "1h", "2h", etc.
+                    const hours = parseInt(timeout.replace('h', ''));
+                    sessionTimeoutSeconds = hours * 3600;
+                } else if (timeout.endsWith('m')) {
+                    // Formato "30m", "45m", etc.
+                    const minutes = parseInt(timeout.replace('m', ''));
+                    sessionTimeoutSeconds = minutes * 60;
                 } else {
                     // Formato em segundos
                     sessionTimeoutSeconds = parseInt(timeout);
