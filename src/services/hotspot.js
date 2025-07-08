@@ -1026,6 +1026,11 @@ class HotspotService {
     async removeHostByMac(host, username, password, macAddress, port = 8728) {
         try {
             const conn = await this.createConnection(host, username, password, port);
+            console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Aguardando 10 segundos antes de remover host com MAC: ${macAddress}`);
+            
+            // AGUARDAR 10 SEGUNDOS antes de excluir o host (conforme solicitado)
+            await new Promise(resolve => setTimeout(resolve, 10000));
+            
             console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Executando comando: /ip hotspot host remove [find mac-address=${macAddress}]`);
             
             // Primeiro listar todos os hosts para encontrar os que correspondem ao MAC
@@ -1048,7 +1053,7 @@ class HotspotService {
                     removedHosts.push(hostItem);
                     removedCount++;
                     
-                    console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Host removido com sucesso: ${hostItem['.id']} (MAC: ${macAddress})`);
+                    console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Host removido com sucesso após 10 segundos: ${hostItem['.id']} (MAC: ${macAddress})`);
                 }
             }
             

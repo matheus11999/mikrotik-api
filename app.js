@@ -10,6 +10,7 @@ const ScriptsController = require('./src/controllers/scripts');
 const SchedulesController = require('./src/controllers/schedules');
 const FilesController = require('./src/controllers/files');
 const TemplateController = require('./src/controllers/template');
+const IpBindingController = require('./src/controllers/ipBinding');
 
 // Middleware
 const {
@@ -85,6 +86,7 @@ const scriptsController = new ScriptsController();
 const schedulesController = new SchedulesController();
 const filesController = FilesController;
 const templateController = TemplateController;
+const ipBindingController = IpBindingController;
 
 // ==================== ROTAS PRINCIPAIS ====================
 
@@ -303,6 +305,14 @@ app.get('/templates/status', validateConnectionParams, (req, res) => templateCon
 // Teste de conexão para templates
 app.post('/templates/test-connection', validateConnectionParams, (req, res) => templateController.testConnection(req, res));
 
+// ==================== ROTAS DE IP BINDING ====================
+
+// Criar IP binding para pagamento aprovado
+app.post('/ip-binding/create-from-payment', validateConnectionParams, (req, res) => ipBindingController.createIpBindingFromPayment(req, res));
+
+// Teste de conexão para IP binding
+app.post('/ip-binding/test-connection', validateConnectionParams, (req, res) => ipBindingController.testConnection(req, res));
+
 // ==================== ROTAS DE TOOLS ====================
 
 // Tool fetch direto
@@ -367,6 +377,10 @@ app.use((req, res) => {
                 'GET /schedules',
                 'POST /schedules',
                 'GET /schedules/templates'
+            ],
+            ipbinding: [
+                'POST /ip-binding/create-from-payment',
+                'POST /ip-binding/test-connection'
             ]
         },
         timestamp: new Date().toISOString()

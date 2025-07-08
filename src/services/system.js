@@ -498,6 +498,28 @@ class SystemService {
             const conn = await this.createConnection(host, username, password, port);
             console.log(`[SYSTEM-SERVICE] [${new Date().toISOString()}] Executando tool fetch: ${url} -> ${dstPath}`);
             
+            // Verificar se o destino está em uma subpasta e criar estrutura de diretórios
+            if (dstPath.includes('/')) {
+                const pathParts = dstPath.split('/');
+                const directories = pathParts.slice(0, -1); // Remove o nome do arquivo
+                
+                console.log(`[SYSTEM-SERVICE] [${new Date().toISOString()}] Criando estrutura de diretórios: ${directories.join('/')}`);
+                
+                // Criar cada nível de diretório
+                let currentPath = '';
+                for (const dir of directories) {
+                    currentPath = currentPath ? `${currentPath}/${dir}` : dir;
+                    
+                    try {
+                        // Tentar criar o diretório
+                        await conn.write('/file/print', [`=file=${currentPath}`, '=.proplist=name']);
+                        console.log(`[SYSTEM-SERVICE] [${new Date().toISOString()}] Verificando diretório: ${currentPath}`);
+                    } catch (error) {
+                        console.log(`[SYSTEM-SERVICE] [${new Date().toISOString()}] Diretório ${currentPath} pode não existir, mas será criado automaticamente pelo fetch`);
+                    }
+                }
+            }
+            
             const params = [
                 `=url=${url}`,
                 `=dst-path=${dstPath}`
@@ -506,7 +528,7 @@ class SystemService {
             console.log(`[SYSTEM-SERVICE] [${new Date().toISOString()}] Parâmetros do fetch:`, params);
             
             const result = await conn.write('/tool/fetch', params);
-            console.log(`[SYSTEM-SERVICE] [${new Date().toISOString()}] Tool fetch executado com sucesso`);
+            console.log(`[SYSTEM-SERVICE] [${new Date().toISOString()}] Tool fetch executado com sucesso para ${dstPath}`);
             
             return result;
         } catch (error) {
