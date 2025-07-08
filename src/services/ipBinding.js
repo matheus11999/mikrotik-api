@@ -291,10 +291,8 @@ class IpBindingService {
                 disabled: false
             };
             
-            // Se houver rate limit configurado, aplicar
-            if (paymentData.plano_rate_limit) {
-                bindingData.to_address = paymentData.plano_rate_limit;
-            }
+            // Nota: Rate limit será aplicado via user profile no hotspot, não no IP binding
+            // O IP binding apenas libera o acesso baseado no MAC address
             
             console.log(`[IP-BINDING-SERVICE] [${new Date().toISOString()}] Criando IP binding:`, {
                 mac: formattedMac,
