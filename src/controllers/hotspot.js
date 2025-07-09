@@ -268,6 +268,7 @@ class HotspotController {
             const profileData = req.body;
             
             console.log(`[HOTSPOT-CONTROLLER] [${new Date().toISOString()}] Atualizando profile ID: ${id}`);
+            console.log(`[HOTSPOT-CONTROLLER] [${new Date().toISOString()}] Dados recebidos:`, JSON.stringify(profileData, null, 2));
             
             const result = await this.hotspotService.updateProfile(ip, username, password, id, profileData, port);
             

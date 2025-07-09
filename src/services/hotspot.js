@@ -393,6 +393,7 @@ class HotspotService {
         try {
             const conn = await this.createConnection(host, username, password, port);
             console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Atualizando profile do hotspot ID: ${profileId}`);
+            console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Profile data recebido:`, JSON.stringify(profileData, null, 2));
             
             const params = [`=.id=${profileId}`];
             
@@ -401,9 +402,22 @@ class HotspotService {
             
             // Timeouts e limites de tempo
             if (profileData.idle_timeout !== undefined) params.push(`=idle-timeout=${profileData.idle_timeout}`);
+            // Também verificar formato com hífen (enviado pelo backend)
+            if (profileData['idle-timeout'] !== undefined) {
+                console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Processando idle-timeout: ${profileData['idle-timeout']}`);
+                params.push(`=idle-timeout=${profileData['idle-timeout']}`);
+            }
             if (profileData.keepalive_timeout !== undefined) params.push(`=keepalive-timeout=${profileData.keepalive_timeout}`);
             if (profileData.status_autorefresh !== undefined) params.push(`=status-autorefresh=${profileData.status_autorefresh}`);
-            if (profileData.session_timeout !== undefined) params.push(`=session-timeout=${profileData.session_timeout}`);
+            if (profileData.session_timeout !== undefined) {
+                console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Processando session_timeout: ${profileData.session_timeout}`);
+                params.push(`=session-timeout=${profileData.session_timeout}`);
+            }
+            // Também verificar formato com hífen (enviado pelo backend)
+            if (profileData['session-timeout'] !== undefined) {
+                console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Processando session-timeout: ${profileData['session-timeout']}`);
+                params.push(`=session-timeout=${profileData['session-timeout']}`);
+            }
             
             // Controle de usuários e cookies
             if (profileData.shared_users !== undefined) params.push(`=shared-users=${profileData.shared_users}`);
@@ -412,6 +426,11 @@ class HotspotService {
             
             // Velocidade e rate limiting
             if (profileData.rate_limit !== undefined) params.push(`=rate-limit=${profileData.rate_limit}`);
+            // Também verificar formato com hífen (enviado pelo backend)
+            if (profileData['rate-limit'] !== undefined) {
+                console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Processando rate-limit: ${profileData['rate-limit']}`);
+                params.push(`=rate-limit=${profileData['rate-limit']}`);
+            }
             if (profileData.rate_limit_min_throughput !== undefined) params.push(`=rate-limit-min-throughput=${profileData.rate_limit_min_throughput}`);
             if (profileData.rate_limit_burst_limit !== undefined) params.push(`=rate-limit-burst-limit=${profileData.rate_limit_burst_limit}`);
             if (profileData.rate_limit_burst_threshold !== undefined) params.push(`=rate-limit-burst-threshold=${profileData.rate_limit_burst_threshold}`);
