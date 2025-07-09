@@ -1,5 +1,47 @@
 const { RouterOSAPI } = require('node-routeros');
 
+/**
+ * Converte session_timeout para minutos (para comentários)
+ * @param sessionTimeout Session timeout em formato MikroTik (ex: "1h", "30m", "3600")
+ * @returns Duração em minutos (ex: "60 minutos", "30 minutos")
+ */
+function formatSessionTimeoutInMinutes(sessionTimeout) {
+    if (!sessionTimeout) return 'Sem limite';
+    
+    const timeout = sessionTimeout.toString().toLowerCase().trim();
+    
+    if (timeout.endsWith('h')) {
+        const hours = parseInt(timeout.replace('h', ''));
+        const minutes = hours * 60;
+        return minutes === 1 ? '1 minuto' : `${minutes} minutos`;
+    } else if (timeout.endsWith('m')) {
+        const minutes = parseInt(timeout.replace('m', ''));
+        return minutes === 1 ? '1 minuto' : `${minutes} minutos`;
+    } else if (timeout.includes(':')) {
+        // Formato HH:MM:SS
+        const parts = timeout.split(':');
+        const hours = parseInt(parts[0]) || 0;
+        const mins = parseInt(parts[1]) || 0;
+        const totalMinutes = (hours * 60) + mins;
+        
+        return totalMinutes === 1 ? '1 minuto' : `${totalMinutes} minutos`;
+    } else {
+        // Formato em segundos
+        const seconds = parseInt(timeout);
+        if (!isNaN(seconds)) {
+            const minutes = Math.floor(seconds / 60);
+            
+            if (minutes >= 1) {
+                return minutes === 1 ? '1 minuto' : `${minutes} minutos`;
+            } else {
+                return `${seconds} segundos`;
+            }
+        }
+    }
+    
+    return 'Sem limite';
+}
+
 class IpBindingService {
     constructor() {
         this.connections = new Map();
@@ -265,8 +307,9 @@ class IpBindingService {
             // Formatação do comentário com informações do pagamento
             const createdAtStr = createdAt.toISOString().replace('T', ' ').split('.')[0];
             const expiresAtStr = expiresAt.toISOString().replace('T', ' ').split('.')[0];
+            const durationText = formatSessionTimeoutInMinutes(paymentData.plano_session_timeout);
             
-            const comment = `PIX-${paymentData.payment_id} | Plano: ${paymentData.plano_nome} | Valor: R$ ${parseFloat(paymentData.plano_valor).toFixed(2)} | Criado: ${createdAtStr} | Expira: ${expiresAtStr}`;
+            const comment = `PIX-${paymentData.payment_id} | Plano: ${paymentData.plano_nome} | Valor: R$ ${parseFloat(paymentData.plano_valor).toFixed(2)} | Duração: ${durationText} | Criado: ${createdAtStr} | Expira: ${expiresAtStr}`;
             
             // Verificar se já existe IP binding para este MAC
             console.log(`[IP-BINDING-SERVICE] [${new Date().toISOString()}] Verificando IP bindings existentes para MAC: ${formattedMac}...`);
