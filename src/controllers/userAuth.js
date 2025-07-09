@@ -127,7 +127,14 @@ class UserAuthController {
             const expirationDate = new Date(now);
             expirationDate.setSeconds(expirationDate.getSeconds() + durationSeconds);
 
-            return expirationDate.toISOString().replace('T', ' ').split('.')[0];
+            // Formatar no padrão brasileiro: DD/MM/YYYY HH:MM
+            const day = String(expirationDate.getDate()).padStart(2, '0');
+            const month = String(expirationDate.getMonth() + 1).padStart(2, '0');
+            const year = expirationDate.getFullYear();
+            const hours = String(expirationDate.getHours()).padStart(2, '0');
+            const minutes = String(expirationDate.getMinutes()).padStart(2, '0');
+
+            return `${day}/${month}/${year} ${hours}:${minutes}`;
 
         } catch (error) {
             console.error(`[USER-AUTH] [${new Date().toISOString()}] Erro ao calcular data de expiração:`, error.message);
