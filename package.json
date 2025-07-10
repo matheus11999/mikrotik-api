@@ -4,8 +4,8 @@
   "description": "API completa para gerenciamento de MikroTik RouterOS via node-routeros",
   "main": "app.js",
   "scripts": {
-    "start": "node app.js",
-    "dev": "nodemon app.js",
+    "start": "node --max-old-space-size=256 --expose-gc app.js",
+    "dev": "nodemon --max-old-space-size=256 --expose-gc app.js",
     "test": "echo \"Error: no test specified\" && exit 1",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",
