@@ -285,6 +285,28 @@ app.post('/api/security/clear-blocks', (req, res) => {
     }
 });
 
+// Clear logs endpoint
+app.post('/api/logs/clear', (req, res) => {
+    try {
+        const { logType } = req.body;
+        const logger = require('./src/utils/logger');
+        const result = logger.clearLogs(logType);
+        
+        res.json({
+            success: true,
+            message: `Logs cleared successfully`,
+            data: result,
+            timestamp: new Date().toISOString()
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            error: 'Failed to clear logs',
+            timestamp: new Date().toISOString()
+        });
+    }
+});
+
 // Teste de conexão geral
 app.post('/test-connection', validateConnectionParams, async (req, res) => {
     try {

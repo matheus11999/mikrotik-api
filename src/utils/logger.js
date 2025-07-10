@@ -50,7 +50,8 @@ class Logger {
             platform: os.platform(),
             arch: os.arch(),
             nodeVersion: process.version,
-            loadAverage: os.loadavg()
+            loadAverage: os.loadavg(),
+            pid: process.pid
         };
     }
 
@@ -288,15 +289,80 @@ class Logger {
         }
     }
 
+    // Clear logs
+    clearLogs(logType = 'all') {
+        try {
+            const results = { cleared: [], errors: [] };
+            
+            if (logType === 'all' || logType === 'errors') {
+                if (fs.existsSync(this.errorLogFile)) {
+                    fs.writeFileSync(this.errorLogFile, '');
+                    results.cleared.push('errors');
+                    this.logInfo('Error logs cleared', 'Log Management');
+                }
+            }
+            
+            if (logType === 'all' || logType === 'access') {
+                if (fs.existsSync(this.accessLogFile)) {
+                    fs.writeFileSync(this.accessLogFile, '');
+                    results.cleared.push('access');
+                    this.logInfo('Access logs cleared', 'Log Management');
+                }
+            }
+            
+            if (logType === 'all' || logType === 'performance') {
+                if (fs.existsSync(this.performanceLogFile)) {
+                    fs.writeFileSync(this.performanceLogFile, '');
+                    results.cleared.push('performance');
+                    this.logInfo('Performance logs cleared', 'Log Management');
+                }
+            }
+            
+            // Reset in-memory metrics
+            if (logType === 'all' || logType === 'metrics') {
+                this.apiMetrics = {
+                    totalRequests: 0,
+                    errorCount: 0,
+                    slowRequests: 0,
+                    endpoints: new Map(),
+                    startTime: new Date()
+                };
+                results.cleared.push('metrics');
+                this.logInfo('Metrics reset', 'Log Management');
+            }
+            
+            return results;
+        } catch (error) {
+            console.error(`[LOGGER] Failed to clear logs:`, error.message);
+            return { cleared: [], errors: [error.message] };
+        }
+    }
+
     // Clean up old metrics every hour to prevent memory issues
     startMetricsCleanup() {
         setInterval(() => {
             const now = Date.now();
             const oneHourAgo = now - (60 * 60 * 1000);
             
-            // Reset metrics if they're getting too large
-            if (this.apiMetrics.totalRequests > 100000) {
-                this.logInfo('Resetting metrics due to size limit');
+            // Check memory usage and clean up if needed
+            const memUsage = process.memoryUsage();
+            const heapUsedPercent = (memUsage.heapUsed / memUsage.heapTotal) * 100;
+            
+            // Force garbage collection if memory usage is high
+            if (heapUsedPercent > 85) {
+                try {
+                    if (global.gc) {
+                        global.gc();
+                        this.logInfo(`Forced garbage collection - Memory usage was ${heapUsedPercent.toFixed(1)}%`, 'Memory Management');
+                    }
+                } catch (error) {
+                    console.warn(`[LOGGER] Could not force garbage collection:`, error.message);
+                }
+            }
+            
+            // Reset metrics if they're getting too large or memory is high
+            if (this.apiMetrics.totalRequests > 50000 || heapUsedPercent > 80) {
+                this.logInfo(`Resetting metrics - Requests: ${this.apiMetrics.totalRequests}, Memory: ${heapUsedPercent.toFixed(1)}%`, 'Memory Management');
                 this.apiMetrics = {
                     totalRequests: 0,
                     errorCount: 0,
@@ -305,7 +371,17 @@ class Logger {
                     startTime: new Date()
                 };
             }
-        }, 60 * 60 * 1000); // 1 hour
+            
+            // Clean up old endpoint data
+            if (this.apiMetrics.endpoints.size > 1000) {
+                const sortedEndpoints = Array.from(this.apiMetrics.endpoints.entries())
+                    .sort((a, b) => b[1].lastAccessed - a[1].lastAccessed)
+                    .slice(0, 500); // Keep only top 500 most recent
+                
+                this.apiMetrics.endpoints = new Map(sortedEndpoints);
+                this.logInfo('Cleaned up old endpoint data', 'Memory Management');
+            }
+        }, 30 * 60 * 1000); // 30 minutes
     }
 
     // Get health status
@@ -333,14 +409,14 @@ class Logger {
         const memoryUsage = process.memoryUsage();
         const memoryUsagePercent = (memoryUsage.heapUsed / memoryUsage.heapTotal) * 100;
         
-        if (memoryUsagePercent > 90) {
+        if (memoryUsagePercent > 95) {
             health.status = 'unhealthy';
-            health.checks.memory = { status: 'fail', value: memoryUsagePercent, threshold: 90 };
-        } else if (memoryUsagePercent > 80) {
+            health.checks.memory = { status: 'fail', value: memoryUsagePercent, threshold: 95 };
+        } else if (memoryUsagePercent > 85) {
             if (health.status === 'healthy') health.status = 'degraded';
-            health.checks.memory = { status: 'warn', value: memoryUsagePercent, threshold: 80 };
+            health.checks.memory = { status: 'warn', value: memoryUsagePercent, threshold: 85 };
         } else {
-            health.checks.memory = { status: 'pass', value: memoryUsagePercent, threshold: 90 };
+            health.checks.memory = { status: 'pass', value: memoryUsagePercent, threshold: 95 };
         }
 
         // Check if we have too many slow requests
