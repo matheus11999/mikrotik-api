@@ -1,4 +1,5 @@
 const { RouterOSAPI } = require('node-routeros');
+const moment = require('moment');
 
 class ConnectionManager {
     constructor() {
@@ -407,4 +408,48 @@ class ConnectionManager {
     }
 }
 
-module.exports = ConnectionManager; 
+const connectionManagerInstance = new ConnectionManager();
+
+function parseDuration(timeStr) {
+    if (!timeStr || typeof timeStr !== 'string') {
+        return moment.duration(0);
+    }
+    const durationRegex = /(\d+)([wdhms])/g;
+    let totalSeconds = 0;
+    let match;
+    while ((match = durationRegex.exec(timeStr)) !== null) {
+        const value = parseInt(match[1], 10);
+        const unit = match[2];
+        switch (unit) {
+            case 'w':
+                totalSeconds += value * 7 * 24 * 3600;
+                break;
+            case 'd':
+                totalSeconds += value * 24 * 3600;
+                break;
+            case 'h':
+                totalSeconds += value * 3600;
+                break;
+            case 'm':
+                totalSeconds += value * 60;
+                break;
+            case 's':
+                totalSeconds += value;
+                break;
+        }
+    }
+    return moment.duration(totalSeconds, 'seconds');
+}
+
+function enhanceError(error, operation, context) {
+    // ... (código existente)
+}
+
+module.exports = {
+    getConnection: connectionManagerInstance.getConnection.bind(connectionManagerInstance),
+    closeConnection: connectionManagerInstance.closeAllConnections.bind(connectionManagerInstance),
+    closeAllConnections: connectionManagerInstance.closeAllConnections.bind(connectionManagerInstance),
+    testConnection: connectionManagerInstance.testConnection.bind(connectionManagerInstance),
+    enhanceError,
+    parseDuration
+}; 

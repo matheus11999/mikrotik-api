@@ -1,0 +1,739 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MikroTik API - System Monitoring & Error Logs</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link href="css/style.css" rel="stylesheet">
+    <style>
+        .health-card {
+            border-left: 4px solid transparent;
+            transition: all 0.3s ease;
+        }
+        .health-healthy { border-left-color: #28a745; }
+        .health-degraded { border-left-color: #ffc107; }
+        .health-unhealthy { border-left-color: #dc3545; }
+        .metric-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border-radius: 10px;
+        }
+        .metric-value {
+            font-size: 2rem;
+            font-weight: bold;
+        }
+        .log-entry {
+            font-family: 'Courier New', monospace;
+            font-size: 0.875rem;
+            margin-bottom: 0.5rem;
+            padding: 0.5rem;
+            border-radius: 4px;
+            border-left: 3px solid transparent;
+        }
+        .log-error { 
+            background-color: #f8d7da; 
+            border-left-color: #dc3545; 
+            color: #721c24;
+        }
+        .log-warning { 
+            background-color: #fff3cd; 
+            border-left-color: #ffc107; 
+            color: #856404;
+        }
+        .log-info { 
+            background-color: #d1ecf1; 
+            border-left-color: #17a2b8; 
+            color: #0c5460;
+        }
+        .log-access { 
+            background-color: #d4edda; 
+            border-left-color: #28a745; 
+            color: #155724;
+        }
+        .endpoint-stats {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .refresh-spinner {
+            display: none;
+        }
+        .charts-container {
+            height: 300px;
+        }
+        .system-info {
+            font-family: 'Courier New', monospace;
+            font-size: 0.8rem;
+        }
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+        .loading {
+            animation: pulse 1.5s infinite;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="/">
+                <i class="fas fa-chart-line me-2"></i>
+                MikroTik API - System Monitor
+            </a>
+            <div class="navbar-nav ms-auto">
+                <span class="navbar-text me-3" id="lastUpdate">
+                    <i class="fas fa-clock me-2"></i>
+                    Last update: Never
+                </span>
+                <button class="btn btn-outline-light btn-sm" onclick="refreshAllData()">
+                    <i class="fas fa-sync-alt me-2 refresh-spinner"></i>
+                    <span id="refreshText">Refresh</span>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container-fluid mt-4">
+        <!-- System Health Overview -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card health-card" id="healthCard">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0">
+                            <i class="fas fa-heartbeat me-2"></i>
+                            System Health Status
+                        </h5>
+                        <span class="badge" id="healthBadge">Unknown</span>
+                    </div>
+                    <div class="card-body">
+                        <div class="row" id="healthChecks">
+                            <div class="col-12">
+                                <div class="text-center">
+                                    <div class="spinner-border" role="status">
+                                        <span class="visually-hidden">Loading health data...</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Metrics Overview -->
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="card metric-card">
+                    <div class="card-body text-center">
+                        <i class="fas fa-exchange-alt fa-2x mb-2"></i>
+                        <div class="metric-value" id="totalRequests">0</div>
+                        <div>Total Requests</div>
+                        <small id="requestsPerMinute">0 req/min</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card metric-card">
+                    <div class="card-body text-center">
+                        <i class="fas fa-exclamation-triangle fa-2x mb-2"></i>
+                        <div class="metric-value" id="errorCount">0</div>
+                        <div>Errors</div>
+                        <small id="errorRate">0% error rate</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card metric-card">
+                    <div class="card-body text-center">
+                        <i class="fas fa-clock fa-2x mb-2"></i>
+                        <div class="metric-value" id="slowRequests">0</div>
+                        <div>Slow Requests</div>
+                        <small id="slowRate">Threshold: >3s</small>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card metric-card">
+                    <div class="card-body text-center">
+                        <i class="fas fa-server fa-2x mb-2"></i>
+                        <div class="metric-value" id="uptime">0</div>
+                        <div>Uptime</div>
+                        <small id="startTime">Started: Unknown</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- System Information -->
+        <div class="row mb-4">
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h6 class="mb-0">
+                            <i class="fas fa-microchip me-2"></i>
+                            System Resources
+                        </h6>
+                    </div>
+                    <div class="card-body system-info" id="systemResources">
+                        <div class="text-center">
+                            <div class="spinner-border spinner-border-sm" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="card">
+                    <div class="card-header">
+                        <h6 class="mb-0">
+                            <i class="fas fa-info-circle me-2"></i>
+                            API Information
+                        </h6>
+                    </div>
+                    <div class="card-body system-info" id="apiInfo">
+                        <div class="text-center">
+                            <div class="spinner-border spinner-border-sm" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tabs for different log types -->
+        <div class="card">
+            <div class="card-header">
+                <ul class="nav nav-tabs card-header-tabs" id="logTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="errors-tab" data-bs-toggle="tab" data-bs-target="#errors-pane" type="button" role="tab">
+                            <i class="fas fa-exclamation-circle me-2"></i>
+                            Error Logs
+                            <span class="badge bg-danger ms-2" id="errorLogCount">0</span>
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="access-tab" data-bs-toggle="tab" data-bs-target="#access-pane" type="button" role="tab">
+                            <i class="fas fa-globe me-2"></i>
+                            Access Logs
+                            <span class="badge bg-success ms-2" id="accessLogCount">0</span>
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="performance-tab" data-bs-toggle="tab" data-bs-target="#performance-pane" type="button" role="tab">
+                            <i class="fas fa-tachometer-alt me-2"></i>
+                            Performance
+                            <span class="badge bg-warning ms-2" id="performanceLogCount">0</span>
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="endpoints-tab" data-bs-toggle="tab" data-bs-target="#endpoints-pane" type="button" role="tab">
+                            <i class="fas fa-route me-2"></i>
+                            Endpoint Stats
+                        </button>
+                    </li>
+                </ul>
+            </div>
+            <div class="card-body">
+                <div class="tab-content" id="logTabContent">
+                    <!-- Error Logs Tab -->
+                    <div class="tab-pane fade show active" id="errors-pane" role="tabpanel">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h6>Recent Error Logs</h6>
+                            <div>
+                                <select class="form-select form-select-sm d-inline-block w-auto me-2" id="errorLimit">
+                                    <option value="50">Last 50</option>
+                                    <option value="100" selected>Last 100</option>
+                                    <option value="200">Last 200</option>
+                                    <option value="500">Last 500</option>
+                                </select>
+                                <button class="btn btn-sm btn-outline-primary" onclick="loadErrorLogs()">
+                                    <i class="fas fa-sync-alt"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div id="errorLogs" class="logs-container" style="max-height: 600px; overflow-y: auto;">
+                            <div class="text-center">
+                                <div class="spinner-border" role="status">
+                                    <span class="visually-hidden">Loading error logs...</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Access Logs Tab -->
+                    <div class="tab-pane fade" id="access-pane" role="tabpanel">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h6>Recent Access Logs</h6>
+                            <div>
+                                <select class="form-select form-select-sm d-inline-block w-auto me-2" id="accessLimit">
+                                    <option value="50">Last 50</option>
+                                    <option value="100" selected>Last 100</option>
+                                    <option value="200">Last 200</option>
+                                </select>
+                                <button class="btn btn-sm btn-outline-primary" onclick="loadAccessLogs()">
+                                    <i class="fas fa-sync-alt"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <div id="accessLogs" class="logs-container" style="max-height: 600px; overflow-y: auto;">
+                            <div class="text-center">
+                                <div class="spinner-border" role="status">
+                                    <span class="visually-hidden">Loading access logs...</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Performance Tab -->
+                    <div class="tab-pane fade" id="performance-pane" role="tabpanel">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h6>Performance Logs</h6>
+                            <button class="btn btn-sm btn-outline-primary" onclick="loadPerformanceLogs()">
+                                <i class="fas fa-sync-alt"></i>
+                            </button>
+                        </div>
+                        <div id="performanceLogs" class="logs-container" style="max-height: 600px; overflow-y: auto;">
+                            <div class="text-center">
+                                <div class="spinner-border" role="status">
+                                    <span class="visually-hidden">Loading performance logs...</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Endpoint Stats Tab -->
+                    <div class="tab-pane fade" id="endpoints-pane" role="tabpanel">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h6>Endpoint Statistics</h6>
+                            <button class="btn btn-sm btn-outline-primary" onclick="loadEndpointStats()">
+                                <i class="fas fa-sync-alt"></i>
+                            </button>
+                        </div>
+                        <div id="endpointStats" class="endpoint-stats">
+                            <div class="text-center">
+                                <div class="spinner-border" role="status">
+                                    <span class="visually-hidden">Loading endpoint stats...</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Error Details Modal -->
+    <div class="modal fade" id="errorDetailsModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Error Details</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <pre id="errorDetailsContent" class="bg-light p-3"></pre>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let refreshInterval;
+        const API_BASE = window.location.origin;
+
+        // Format timestamp
+        function formatTimestamp(timestamp) {
+            return new Date(timestamp).toLocaleString('pt-BR');
+        }
+
+        // Format uptime
+        function formatUptime(seconds) {
+            const days = Math.floor(seconds / 86400);
+            const hours = Math.floor((seconds % 86400) / 3600);
+            const minutes = Math.floor((seconds % 3600) / 60);
+            return `${days}d ${hours}h ${minutes}m`;
+        }
+
+        // Format bytes
+        function formatBytes(bytes) {
+            if (bytes === 0) return '0 B';
+            const k = 1024;
+            const sizes = ['B', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        // Load system health
+        async function loadSystemHealth() {
+            try {
+                const response = await fetch(`${API_BASE}/api/system/health`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    updateHealthDisplay(data.data.health);
+                    updateSystemInfo(data.data.system);
+                }
+            } catch (error) {
+                console.error('Failed to load system health:', error);
+                showError('Failed to load system health data');
+            }
+        }
+
+        // Update health display
+        function updateHealthDisplay(health) {
+            const healthCard = document.getElementById('healthCard');
+            const healthBadge = document.getElementById('healthBadge');
+            const healthChecks = document.getElementById('healthChecks');
+
+            // Update card style
+            healthCard.className = `card health-card health-${health.status}`;
+            
+            // Update badge
+            healthBadge.className = `badge bg-${health.status === 'healthy' ? 'success' : health.status === 'degraded' ? 'warning' : 'danger'}`;
+            healthBadge.textContent = health.status.toUpperCase();
+
+            // Update checks
+            let checksHtml = '';
+            for (const [checkName, check] of Object.entries(health.checks)) {
+                const statusIcon = check.status === 'pass' ? 'check-circle text-success' : 
+                                 check.status === 'warn' ? 'exclamation-triangle text-warning' : 
+                                 'times-circle text-danger';
+                
+                checksHtml += `
+                    <div class="col-md-4 mb-2">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-${statusIcon} me-2"></i>
+                            <strong>${checkName}:</strong>
+                            <span class="ms-auto">${check.value}${checkName.includes('Rate') || checkName.includes('memory') || checkName.includes('performance') ? '%' : ''}</span>
+                        </div>
+                        <small class="text-muted">Threshold: ${check.threshold}${checkName.includes('Rate') || checkName.includes('memory') || checkName.includes('performance') ? '%' : ''}</small>
+                    </div>
+                `;
+            }
+            healthChecks.innerHTML = checksHtml;
+        }
+
+        // Update system info
+        function updateSystemInfo(system) {
+            const systemResources = document.getElementById('systemResources');
+            const apiInfo = document.getElementById('apiInfo');
+
+            const memoryUsed = ((system.memoryUsage.heapUsed / system.memoryUsage.heapTotal) * 100).toFixed(1);
+            const systemMemoryUsed = ((system.systemMemory.used / system.systemMemory.total) * 100).toFixed(1);
+
+            systemResources.innerHTML = `
+                <div><strong>Memory Usage:</strong> ${memoryUsed}% (${formatBytes(system.memoryUsage.heapUsed)} / ${formatBytes(system.memoryUsage.heapTotal)})</div>
+                <div><strong>System Memory:</strong> ${systemMemoryUsed}% (${formatBytes(system.systemMemory.used)} / ${formatBytes(system.systemMemory.total)})</div>
+                <div><strong>CPU Load:</strong> ${system.loadAverage[0].toFixed(2)} (1min)</div>
+                <div><strong>Platform:</strong> ${system.platform} ${system.arch}</div>
+                <div><strong>Node Version:</strong> ${system.nodeVersion}</div>
+            `;
+
+            apiInfo.innerHTML = `
+                <div><strong>Process Uptime:</strong> ${formatUptime(system.uptime)}</div>
+                <div><strong>System Uptime:</strong> ${formatUptime(system.systemUptime)}</div>
+                <div><strong>Last Updated:</strong> ${formatTimestamp(system.timestamp)}</div>
+                <div><strong>PID:</strong> ${process.pid || 'N/A'}</div>
+            `;
+        }
+
+        // Load metrics
+        async function loadMetrics() {
+            try {
+                const response = await fetch(`${API_BASE}/api/logs/metrics`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    updateMetricsDisplay(data.data);
+                }
+            } catch (error) {
+                console.error('Failed to load metrics:', error);
+                showError('Failed to load metrics data');
+            }
+        }
+
+        // Update metrics display
+        function updateMetricsDisplay(metrics) {
+            document.getElementById('totalRequests').textContent = metrics.totalRequests.toLocaleString();
+            document.getElementById('errorCount').textContent = metrics.errorCount.toLocaleString();
+            document.getElementById('slowRequests').textContent = metrics.slowRequests.toLocaleString();
+            document.getElementById('uptime').textContent = formatUptime(metrics.uptime);
+            
+            document.getElementById('requestsPerMinute').textContent = `${metrics.requestsPerMinute} req/min`;
+            document.getElementById('errorRate').textContent = `${metrics.errorRate}% error rate`;
+            document.getElementById('startTime').textContent = `Started: ${formatTimestamp(metrics.startTime)}`;
+            
+            const slowPercent = metrics.totalRequests > 0 ? ((metrics.slowRequests / metrics.totalRequests) * 100).toFixed(1) : 0;
+            document.getElementById('slowRate').textContent = `${slowPercent}% of total`;
+        }
+
+        // Load error logs
+        async function loadErrorLogs() {
+            const container = document.getElementById('errorLogs');
+            const limit = document.getElementById('errorLimit').value;
+            
+            try {
+                container.innerHTML = '<div class="text-center"><div class="spinner-border" role="status"></div></div>';
+                
+                const response = await fetch(`${API_BASE}/api/logs/errors?limit=${limit}`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    displayLogs(container, data.data, 'error');
+                    document.getElementById('errorLogCount').textContent = data.count;
+                } else {
+                    container.innerHTML = '<div class="alert alert-danger">Failed to load error logs</div>';
+                }
+            } catch (error) {
+                console.error('Failed to load error logs:', error);
+                container.innerHTML = '<div class="alert alert-danger">Error loading logs</div>';
+            }
+        }
+
+        // Load access logs
+        async function loadAccessLogs() {
+            const container = document.getElementById('accessLogs');
+            const limit = document.getElementById('accessLimit').value;
+            
+            try {
+                container.innerHTML = '<div class="text-center"><div class="spinner-border" role="status"></div></div>';
+                
+                const response = await fetch(`${API_BASE}/api/logs/access?limit=${limit}`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    displayLogs(container, data.data, 'access');
+                    document.getElementById('accessLogCount').textContent = data.count;
+                } else {
+                    container.innerHTML = '<div class="alert alert-danger">Failed to load access logs</div>';
+                }
+            } catch (error) {
+                console.error('Failed to load access logs:', error);
+                container.innerHTML = '<div class="alert alert-danger">Error loading logs</div>';
+            }
+        }
+
+        // Load performance logs
+        async function loadPerformanceLogs() {
+            const container = document.getElementById('performanceLogs');
+            
+            try {
+                container.innerHTML = '<div class="text-center"><div class="spinner-border" role="status"></div></div>';
+                
+                const response = await fetch(`${API_BASE}/api/logs/performance?limit=100`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    displayLogs(container, data.data, 'performance');
+                    document.getElementById('performanceLogCount').textContent = data.count;
+                } else {
+                    container.innerHTML = '<div class="alert alert-danger">Failed to load performance logs</div>';
+                }
+            } catch (error) {
+                console.error('Failed to load performance logs:', error);
+                container.innerHTML = '<div class="alert alert-danger">Error loading logs</div>';
+            }
+        }
+
+        // Load endpoint stats
+        async function loadEndpointStats() {
+            const container = document.getElementById('endpointStats');
+            
+            try {
+                container.innerHTML = '<div class="text-center"><div class="spinner-border" role="status"></div></div>';
+                
+                const response = await fetch(`${API_BASE}/api/logs/metrics`);
+                const data = await response.json();
+                
+                if (data.success && data.data.endpointsArray) {
+                    displayEndpointStats(container, data.data.endpointsArray);
+                } else {
+                    container.innerHTML = '<div class="alert alert-info">No endpoint statistics available</div>';
+                }
+            } catch (error) {
+                console.error('Failed to load endpoint stats:', error);
+                container.innerHTML = '<div class="alert alert-danger">Error loading endpoint stats</div>';
+            }
+        }
+
+        // Display logs
+        function displayLogs(container, logs, type) {
+            if (logs.length === 0) {
+                container.innerHTML = '<div class="alert alert-info">No logs found</div>';
+                return;
+            }
+
+            let html = '';
+            logs.forEach(log => {
+                let logClass = 'log-info';
+                if (log.level === 'ERROR') logClass = 'log-error';
+                else if (log.level === 'WARNING') logClass = 'log-warning';
+                else if (log.level === 'ACCESS') logClass = 'log-access';
+
+                const timestamp = formatTimestamp(log.timestamp);
+                let content = '';
+
+                if (type === 'error') {
+                    content = `
+                        <strong>[${timestamp}] ${log.level}</strong><br>
+                        <span class="text-dark">${log.message}</span>
+                        ${log.context ? `<br><small>Context: ${log.context}</small>` : ''}
+                        ${log.request ? `<br><small>Request: ${log.request.method} ${log.request.url} from ${log.request.ip}</small>` : ''}
+                    `;
+                } else if (type === 'access') {
+                    const statusColor = log.statusCode >= 500 ? 'text-danger' : log.statusCode >= 400 ? 'text-warning' : 'text-success';
+                    content = `
+                        <strong>[${timestamp}]</strong>
+                        <span class="${statusColor}">${log.statusCode}</span>
+                        <strong>${log.method}</strong> ${log.url}
+                        <span class="text-muted">- ${log.responseTime}ms - ${log.ip}</span>
+                        ${log.mikrotikIP ? `<br><small>MikroTik: ${log.mikrotikIP}</small>` : ''}
+                    `;
+                } else if (type === 'performance') {
+                    content = `
+                        <strong>[${timestamp}] PERFORMANCE</strong><br>
+                        <span class="text-dark">${log.operation}: ${log.duration}ms</span>
+                        ${log.details ? `<br><small>${JSON.stringify(log.details)}</small>` : ''}
+                    `;
+                }
+
+                html += `
+                    <div class="log-entry ${logClass}" onclick="showLogDetails(${JSON.stringify(log).replace(/"/g, '&quot;')})">
+                        ${content}
+                    </div>
+                `;
+            });
+
+            container.innerHTML = html;
+        }
+
+        // Display endpoint stats
+        function displayEndpointStats(container, endpoints) {
+            if (endpoints.length === 0) {
+                container.innerHTML = '<div class="alert alert-info">No endpoint statistics available</div>';
+                return;
+            }
+
+            let html = `
+                <div class="table-responsive">
+                    <table class="table table-striped table-sm">
+                        <thead>
+                            <tr>
+                                <th>Endpoint</th>
+                                <th>Requests</th>
+                                <th>Errors</th>
+                                <th>Error Rate</th>
+                                <th>Avg Response</th>
+                                <th>Slow Requests</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+            `;
+
+            endpoints.forEach(endpoint => {
+                const errorBadge = endpoint.errorRate > 10 ? 'bg-danger' : endpoint.errorRate > 5 ? 'bg-warning' : 'bg-success';
+                const responseBadge = endpoint.avgResponseTime > 3000 ? 'bg-danger' : endpoint.avgResponseTime > 1000 ? 'bg-warning' : 'bg-success';
+                
+                html += `
+                    <tr>
+                        <td><code>${endpoint.endpoint}</code></td>
+                        <td><span class="badge bg-primary">${endpoint.count}</span></td>
+                        <td><span class="badge bg-secondary">${endpoint.errors}</span></td>
+                        <td><span class="badge ${errorBadge}">${endpoint.errorRate}%</span></td>
+                        <td><span class="badge ${responseBadge}">${endpoint.avgResponseTime}ms</span></td>
+                        <td><span class="badge bg-info">${endpoint.slowRequests}</span></td>
+                    </tr>
+                `;
+            });
+
+            html += '</tbody></table></div>';
+            container.innerHTML = html;
+        }
+
+        // Show log details in modal
+        function showLogDetails(log) {
+            document.getElementById('errorDetailsContent').textContent = JSON.stringify(log, null, 2);
+            new bootstrap.Modal(document.getElementById('errorDetailsModal')).show();
+        }
+
+        // Show error message
+        function showError(message) {
+            // Could implement a toast notification here
+            console.error(message);
+        }
+
+        // Refresh all data
+        async function refreshAllData() {
+            const refreshButton = document.querySelector('#refreshText');
+            const spinner = document.querySelector('.refresh-spinner');
+            
+            refreshButton.textContent = 'Refreshing...';
+            spinner.style.display = 'inline-block';
+            
+            try {
+                await Promise.all([
+                    loadSystemHealth(),
+                    loadMetrics(),
+                    loadErrorLogs(),
+                    loadAccessLogs(),
+                    loadPerformanceLogs(),
+                    loadEndpointStats()
+                ]);
+                
+                document.getElementById('lastUpdate').innerHTML = `
+                    <i class="fas fa-clock me-2"></i>
+                    Last update: ${new Date().toLocaleTimeString('pt-BR')}
+                `;
+            } catch (error) {
+                showError('Failed to refresh data');
+            } finally {
+                refreshButton.textContent = 'Refresh';
+                spinner.style.display = 'none';
+            }
+        }
+
+        // Auto-refresh setup
+        function startAutoRefresh() {
+            refreshInterval = setInterval(refreshAllData, 30000); // 30 seconds
+        }
+
+        function stopAutoRefresh() {
+            if (refreshInterval) {
+                clearInterval(refreshInterval);
+            }
+        }
+
+        // Event listeners
+        document.getElementById('errorLimit').addEventListener('change', loadErrorLogs);
+        document.getElementById('accessLimit').addEventListener('change', loadAccessLogs);
+
+        // Tab change listeners
+        document.getElementById('access-tab').addEventListener('click', () => {
+            setTimeout(loadAccessLogs, 100);
+        });
+        
+        document.getElementById('performance-tab').addEventListener('click', () => {
+            setTimeout(loadPerformanceLogs, 100);
+        });
+        
+        document.getElementById('endpoints-tab').addEventListener('click', () => {
+            setTimeout(loadEndpointStats, 100);
+        });
+
+        // Initialize on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            refreshAllData();
+            startAutoRefresh();
+        });
+
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', stopAutoRefresh);
+    </script>
+</body>
+</html>

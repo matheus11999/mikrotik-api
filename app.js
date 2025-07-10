@@ -37,6 +37,19 @@ const {
     advancedSanitization 
 } = require('./src/middleware/security');
 
+// Logging middleware
+const {
+    requestLogger,
+    errorLogger,
+    performanceMonitor,
+    mikrotikLogger,
+    rateLimitLogger,
+    healthLogger,
+    validationErrorLogger,
+    logStartup,
+    logShutdown
+} = require('./src/middleware/logging');
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -57,6 +70,12 @@ app.use(cors(corsOptions));
 // Servir arquivos estáticos
 app.use(express.static(path.join(__dirname, 'public')));
 
+// Logging middleware (should be early in the chain)
+app.use(requestLogger);
+app.use(healthLogger);
+app.use(rateLimitLogger);
+app.use(validationErrorLogger);
+
 // Middleware de segurança (ordem importante)
 app.use(securityHeaders);
 app.use(securityLogger);
@@ -65,16 +84,20 @@ app.use(advancedSanitization);
 app.use(sanitizeInput);
 app.use(rateLimiter);
 
-// Middleware para logging
-app.use((req, res, next) => {
-    console.log(`[APP] [${new Date().toISOString()}] ${req.method} ${req.url} - IP: ${req.ip || req.connection.remoteAddress}`);
-    next();
-});
+// MikroTik specific logging
+app.use(mikrotikLogger);
 
 // Middleware de autenticação (aplicado a todas as rotas exceto health check)
 app.use((req, res, next) => {
-    // Pular autenticação para health check e arquivos estáticos
-    if (req.path === '/health' || req.path.startsWith('/css') || req.path.startsWith('/js') || req.path === '/' || req.path.startsWith('/favicon')) {
+    // Pular autenticação para health check, monitoring, e arquivos estáticos
+    if (req.path === '/health' || 
+        req.path.startsWith('/css') || 
+        req.path.startsWith('/js') || 
+        req.path === '/' || 
+        req.path === '/errors.html' ||
+        req.path.startsWith('/api/logs') ||
+        req.path.startsWith('/api/system/health') ||
+        req.path.startsWith('/favicon')) {
         return next();
     }
     authenticateApiToken(req, res, next);
@@ -94,13 +117,128 @@ const userAuthController = new UserAuthController();
 
 // Health check
 app.get('/health', (req, res) => {
-    res.json({ 
-        status: 'OK', 
+    const logger = require('./src/utils/logger');
+    const health = logger.getHealthStatus();
+    
+    res.status(health.status === 'healthy' ? 200 : health.status === 'degraded' ? 200 : 500).json({ 
+        status: health.status, 
         service: 'MikroTik API',
         version: '1.0.0',
         timestamp: new Date().toISOString(),
-        uptime: process.uptime()
+        uptime: process.uptime(),
+        ...health
     });
+});
+
+// ==================== MONITORING ENDPOINTS ====================
+
+// API metrics endpoint
+app.get('/api/logs/metrics', (req, res) => {
+    try {
+        const logger = require('./src/utils/logger');
+        const metrics = logger.getMetrics();
+        res.json({
+            success: true,
+            data: metrics,
+            timestamp: new Date().toISOString()
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            error: 'Failed to get metrics',
+            timestamp: new Date().toISOString()
+        });
+    }
+});
+
+// Error logs endpoint
+app.get('/api/logs/errors', (req, res) => {
+    try {
+        const logger = require('./src/utils/logger');
+        const limit = parseInt(req.query.limit) || 100;
+        const logs = logger.getRecentLogs('errors', limit);
+        
+        res.json({
+            success: true,
+            data: logs,
+            count: logs.length,
+            timestamp: new Date().toISOString()
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            error: 'Failed to get error logs',
+            timestamp: new Date().toISOString()
+        });
+    }
+});
+
+// Access logs endpoint
+app.get('/api/logs/access', (req, res) => {
+    try {
+        const logger = require('./src/utils/logger');
+        const limit = parseInt(req.query.limit) || 100;
+        const logs = logger.getRecentLogs('access', limit);
+        
+        res.json({
+            success: true,
+            data: logs,
+            count: logs.length,
+            timestamp: new Date().toISOString()
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            error: 'Failed to get access logs',
+            timestamp: new Date().toISOString()
+        });
+    }
+});
+
+// Performance logs endpoint
+app.get('/api/logs/performance', (req, res) => {
+    try {
+        const logger = require('./src/utils/logger');
+        const limit = parseInt(req.query.limit) || 100;
+        const logs = logger.getRecentLogs('performance', limit);
+        
+        res.json({
+            success: true,
+            data: logs,
+            count: logs.length,
+            timestamp: new Date().toISOString()
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            error: 'Failed to get performance logs',
+            timestamp: new Date().toISOString()
+        });
+    }
+});
+
+// System health endpoint
+app.get('/api/system/health', (req, res) => {
+    try {
+        const logger = require('./src/utils/logger');
+        const health = logger.getHealthStatus();
+        const systemInfo = logger.getSystemInfo();
+        
+        res.json({
+            success: true,
+            data: {
+                health,
+                system: systemInfo
+            },
+            timestamp: new Date().toISOString()
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            error: 'Failed to get system health',
+            timestamp: new Date().toISOString()
+        });
+    }
 });
 
 // Teste de conexão geral
@@ -330,14 +468,8 @@ app.post('/user-auth/webhook', (req, res) => userAuthController.handleAuthWebhoo
 
 // ==================== MIDDLEWARE DE ERRO GLOBAL ====================
 
-app.use((error, req, res, next) => {
-    console.error(`[APP] [${new Date().toISOString()}] Erro não tratado:`, error);
-    res.status(500).json({
-        success: false,
-        error: 'Erro interno do servidor',
-        timestamp: new Date().toISOString()
-    });
-});
+// Use the new error logging middleware
+app.use(errorLogger);
 
 // Middleware para rotas não encontradas (deve ser o último)
 app.use((req, res) => {
@@ -404,7 +536,7 @@ app.use((req, res) => {
 // ==================== GRACEFUL SHUTDOWN ====================
 
 process.on('SIGTERM', async () => {
-    console.log(`[APP] [${new Date().toISOString()}] Recebido SIGTERM, encerrando aplicação...`);
+    logShutdown('SIGTERM');
     
     // Fechar todas as conexões dos serviços
     try {
@@ -420,7 +552,7 @@ process.on('SIGTERM', async () => {
 });
 
 process.on('SIGINT', async () => {
-    console.log(`[APP] [${new Date().toISOString()}] Recebido SIGINT, encerrando aplicação...`);
+    logShutdown('SIGINT');
     
     // Fechar todas as conexões dos serviços
     try {
@@ -438,9 +570,11 @@ process.on('SIGINT', async () => {
 // ==================== INICIAR SERVIDOR ====================
 
 app.listen(PORT, () => {
+    logStartup(PORT);
     console.log(`[APP] [${new Date().toISOString()}] 🚀 MikroTik API iniciada na porta ${PORT}`);
     console.log(`[APP] [${new Date().toISOString()}] 📊 Interface web disponível em http://localhost:${PORT}`);
     console.log(`[APP] [${new Date().toISOString()}] 🏥 Health check disponível em http://localhost:${PORT}/health`);
+    console.log(`[APP] [${new Date().toISOString()}] 📊 Error monitoring disponível em http://localhost:${PORT}/errors.html`);
     console.log(`[APP] [${new Date().toISOString()}] 🔗 Teste de conexão disponível em POST http://localhost:${PORT}/test-connection`);
     console.log(`[APP] [${new Date().toISOString()}] 📡 Endpoints principais:`);
     console.log(`[APP] [${new Date().toISOString()}]    - Hotspot: /hotspot/*`);
