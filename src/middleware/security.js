@@ -25,6 +25,22 @@ const securityLogger = (req, res, next) => {
     const url = req.url;
     const authHeader = req.headers['authorization'];
     
+    // Check if this is a whitelisted endpoint (same logic as app.js)
+    const isWhitelisted = (
+        req.path === '/health' || 
+        req.path.startsWith('/css') || 
+        req.path.startsWith('/js') || 
+        req.path === '/' || 
+        req.path === '/errors.html' ||
+        req.path.startsWith('/api/logs') ||
+        req.path.startsWith('/api/system/health') ||
+        req.path.startsWith('/api/security') ||
+        req.path.startsWith('/favicon') ||
+        req.path === '/errors' ||
+        req.path.includes('monitoring') ||
+        req.path.includes('dashboard')
+    );
+    
     // Log básico da requisição
     console.log(`[SECURITY] [${timestamp}] ${method} ${url} - Client: ${ip} - MikroTik: ${mikrotikIP || 'N/A'} - UA: ${userAgent.substring(0, 100)}`);
     
@@ -46,8 +62,8 @@ const securityLogger = (req, res, next) => {
         });
     }
     
-    // Verificar tentativas de acesso sem token
-    if (!authHeader && process.env.API_TOKEN) {
+    // Only track failed auth for non-whitelisted endpoints
+    if (!authHeader && process.env.API_TOKEN && !isWhitelisted) {
         trackFailedAuth(ip, 'NO_TOKEN');
     }
     
