@@ -36,6 +36,7 @@ class Logger {
     }
 
     getSystemInfo() {
+        const cluster = require('cluster');
         return {
             timestamp: this.formatTimestamp(),
             uptime: process.uptime(),
@@ -51,7 +52,14 @@ class Logger {
             arch: os.arch(),
             nodeVersion: process.version,
             loadAverage: os.loadavg(),
-            pid: process.pid
+            pid: process.pid,
+            cpuCores: os.cpus().length,
+            clustering: {
+                isMaster: cluster.isMaster || cluster.isPrimary,
+                isWorker: cluster.isWorker,
+                workerId: cluster.worker ? cluster.worker.id : null,
+                totalWorkers: cluster.isMaster ? Object.keys(cluster.workers || {}).length : null
+            }
         };
     }
 

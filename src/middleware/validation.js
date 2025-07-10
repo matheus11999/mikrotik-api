@@ -373,8 +373,8 @@ class RateLimiter {
     constructor() {
         this.requests = new Map();
         this.WINDOW_SIZE = parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 60 * 1000; // 1 minuto
-        this.MAX_REQUESTS = parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 200; // máximo por minuto
-        this.BURST_LIMIT = parseInt(process.env.RATE_LIMIT_BURST) || 50; // limite de burst
+        this.MAX_REQUESTS = parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 2000; // máximo por minuto (aumentado)
+        this.BURST_LIMIT = parseInt(process.env.RATE_LIMIT_BURST) || 500; // limite de burst (aumentado)
         this.BURST_WINDOW = parseInt(process.env.RATE_LIMIT_BURST_WINDOW_MS) || 10 * 1000; // 10 segundos
         this.CLEANUP_INTERVAL = parseInt(process.env.RATE_LIMIT_CLEANUP_INTERVAL_MS) || 300 * 1000; // 5 minutos
         
@@ -521,7 +521,26 @@ class RateLimiter {
 }
 
 const rateLimiterInstance = new RateLimiter();
-const rateLimiter = (req, res, next) => rateLimiterInstance.checkRateLimit(req, res, next);
+const rateLimiter = (req, res, next) => {
+    // Skip rate limiting for monitoring endpoints
+    const monitoringPaths = [
+        '/api/logs/',
+        '/api/system/health',
+        '/api/security/',
+        '/health',
+        '/errors.html',
+        '/favicon'
+    ];
+    
+    const skipRateLimit = monitoringPaths.some(path => req.path.startsWith(path));
+    
+    if (skipRateLimit) {
+        console.log(`[RATE-LIMITER] [${new Date().toISOString()}] Skipping rate limit for monitoring endpoint: ${req.path}`);
+        return next();
+    }
+    
+    return rateLimiterInstance.checkRateLimit(req, res, next);
+};
 
 // Graceful shutdown
 process.on('SIGTERM', () => rateLimiterInstance.shutdown());

@@ -467,11 +467,15 @@
                 <div><strong>Node Version:</strong> ${system.nodeVersion}</div>
             `;
 
+            const clusterInfo = system.clustering || {};
+            
             apiInfo.innerHTML = `
                 <div><strong>Process Uptime:</strong> ${formatUptime(system.uptime)}</div>
                 <div><strong>System Uptime:</strong> ${formatUptime(system.systemUptime)}</div>
                 <div><strong>Last Updated:</strong> ${formatTimestamp(system.timestamp)}</div>
                 <div><strong>PID:</strong> ${system.pid || 'N/A'}</div>
+                <div><strong>CPU Cores:</strong> ${system.cpuCores || 'N/A'}</div>
+                <div><strong>Clustering:</strong> ${clusterInfo.isWorker ? `Worker ${clusterInfo.workerId}` : clusterInfo.isMaster ? `Master (${clusterInfo.totalWorkers || 0} workers)` : 'Single Process'}</div>
             `;
         }
 
