@@ -368,8 +368,8 @@ class Logger {
                 }
             }
             
-            // Reset metrics if they're getting too large or memory is high (ajustado para 1GB)
-            if (this.apiMetrics.totalRequests > 100000 || heapUsedPercent > 85) {
+            // Reset metrics if they're getting too large or memory is high (mais agressivo)
+            if (this.apiMetrics.totalRequests > 5000 || heapUsedPercent > 75) {
                 this.logInfo(`Resetting metrics - Requests: ${this.apiMetrics.totalRequests}, Memory: ${heapUsedPercent.toFixed(1)}%`, 'Memory Management');
                 this.apiMetrics = {
                     totalRequests: 0,
@@ -380,16 +380,16 @@ class Logger {
                 };
             }
             
-            // Clean up old endpoint data (ajustado para alta memória)
-            if (this.apiMetrics.endpoints.size > 2000) {
+            // Clean up old endpoint data (mais agressivo para evitar vazamentos)
+            if (this.apiMetrics.endpoints.size > 200) {
                 const sortedEndpoints = Array.from(this.apiMetrics.endpoints.entries())
                     .sort((a, b) => b[1].lastAccessed - a[1].lastAccessed)
-                    .slice(0, 1000); // Keep only top 1000 most recent
+                    .slice(0, 100); // Keep only top 100 most recent
                 
                 this.apiMetrics.endpoints = new Map(sortedEndpoints);
                 this.logInfo('Cleaned up old endpoint data', 'Memory Management');
             }
-        }, 30 * 60 * 1000); // 30 minutes
+        }, 5 * 60 * 1000); // 5 minutes (mais frequente)
     }
 
     // Get health status

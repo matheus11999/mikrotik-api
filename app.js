@@ -58,6 +58,12 @@ const PORT = process.env.PORT || 3000;
 // Import heap expansion utility
 const { forceHeapExpansion } = require('./force-heap-expansion');
 
+// Import memory keeper for fixed RAM allocation
+const { MemoryKeeper } = require('./memory-keeper');
+
+// Initialize memory keeper with 1GB fixed allocation
+const memoryKeeper = new MemoryKeeper(1024);
+
 // Middleware básico
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
@@ -316,49 +322,23 @@ app.post('/api/system/gc', (req, res) => {
         const beforeMem = process.memoryUsage();
         const beforePercent = (beforeMem.heapUsed / beforeMem.heapTotal) * 100;
         
-        // Use aggressive heap expansion if usage is very high
-        if (beforePercent > 85) {
-            console.log(`[MEMORY] Using aggressive heap expansion - current usage: ${beforePercent.toFixed(1)}%`);
-            forceHeapExpansion();
-            
-            // Wait for expansion to complete
-            setTimeout(() => {
-                if (global.gc) {
-                    global.gc();
-                }
-                
-                const afterMem = process.memoryUsage();
-                const afterPercent = (afterMem.heapUsed / afterMem.heapTotal) * 100;
-                
-                res.json({
-                    success: true,
-                    message: 'Aggressive heap expansion and garbage collection executed',
-                    data: {
-                        before: {
-                            heapUsed: Math.round(beforeMem.heapUsed / 1024 / 1024 * 100) / 100,
-                            heapTotal: Math.round(beforeMem.heapTotal / 1024 / 1024 * 100) / 100,
-                            percentage: Math.round(beforePercent * 100) / 100
-                        },
-                        after: {
-                            heapUsed: Math.round(afterMem.heapUsed / 1024 / 1024 * 100) / 100,
-                            heapTotal: Math.round(afterMem.heapTotal / 1024 / 1024 * 100) / 100,
-                            percentage: Math.round(afterPercent * 100) / 100
-                        },
-                        saved: Math.round((beforeMem.heapUsed - afterMem.heapUsed) / 1024 / 1024 * 100) / 100,
-                        heapExpansion: Math.round((afterMem.heapTotal - beforeMem.heapTotal) / 1024 / 1024 * 100) / 100
-                    },
-                    timestamp: new Date().toISOString()
-                });
-            }, 2000); // Wait longer for aggressive expansion
-        } else if (global.gc) {
+        // Force memory keeper expansion first
+        memoryKeeper.forceExpansion();
+        
+        // Then do GC if available
+        if (global.gc) {
             global.gc();
-            
+        }
+        
+        // Wait for operations to complete
+        setTimeout(() => {
             const afterMem = process.memoryUsage();
             const afterPercent = (afterMem.heapUsed / afterMem.heapTotal) * 100;
+            const memoryStatus = memoryKeeper.getStatus();
             
             res.json({
                 success: true,
-                message: 'Garbage collection executed successfully',
+                message: 'Memory management and garbage collection executed',
                 data: {
                     before: {
                         heapUsed: Math.round(beforeMem.heapUsed / 1024 / 1024 * 100) / 100,
@@ -370,22 +350,46 @@ app.post('/api/system/gc', (req, res) => {
                         heapTotal: Math.round(afterMem.heapTotal / 1024 / 1024 * 100) / 100,
                         percentage: Math.round(afterPercent * 100) / 100
                     },
+                    memoryKeeper: memoryStatus,
                     saved: Math.round((beforeMem.heapUsed - afterMem.heapUsed) / 1024 / 1024 * 100) / 100,
                     heapExpansion: Math.round((afterMem.heapTotal - beforeMem.heapTotal) / 1024 / 1024 * 100) / 100
                 },
                 timestamp: new Date().toISOString()
             });
-        } else {
-            res.status(400).json({
-                success: false,
-                error: 'Garbage collection not available (run with --expose-gc)',
-                timestamp: new Date().toISOString()
-            });
-        }
+        }, 1500);
+        
     } catch (error) {
         res.status(500).json({
             success: false,
-            error: 'Failed to execute garbage collection',
+            error: 'Failed to execute memory management',
+            timestamp: new Date().toISOString()
+        });
+    }
+});
+
+// Memory keeper status endpoint
+app.get('/api/system/memory-status', (req, res) => {
+    try {
+        const memoryStatus = memoryKeeper.getStatus();
+        const systemMem = process.memoryUsage();
+        
+        res.json({
+            success: true,
+            data: {
+                memoryKeeper: memoryStatus,
+                systemMemory: {
+                    heapUsed: Math.round(systemMem.heapUsed / 1024 / 1024 * 100) / 100,
+                    heapTotal: Math.round(systemMem.heapTotal / 1024 / 1024 * 100) / 100,
+                    rss: Math.round(systemMem.rss / 1024 / 1024 * 100) / 100,
+                    external: Math.round(systemMem.external / 1024 / 1024 * 100) / 100
+                }
+            },
+            timestamp: new Date().toISOString()
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            error: 'Failed to get memory status',
             timestamp: new Date().toISOString()
         });
     }
@@ -688,6 +692,9 @@ app.use((req, res) => {
 process.on('SIGTERM', async () => {
     logShutdown('SIGTERM');
     
+    // Shutdown memory keeper
+    memoryKeeper.shutdown();
+    
     // Fechar todas as conexões dos serviços
     try {
         await hotspotController.hotspotService.closeAllConnections();
@@ -703,6 +710,9 @@ process.on('SIGTERM', async () => {
 
 process.on('SIGINT', async () => {
     logShutdown('SIGINT');
+    
+    // Shutdown memory keeper
+    memoryKeeper.shutdown();
     
     // Fechar todas as conexões dos serviços
     try {

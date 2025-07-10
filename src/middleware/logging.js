@@ -11,32 +11,35 @@ const requestLogger = (req, res, next) => {
     res.end = function(...args) {
         const responseTime = Date.now() - startTime;
         
-        // Log the access
-        logger.logAccess(req, res, responseTime);
+        // Only log if we have valid request data
+        if (req && req.method && req.url && res && res.statusCode) {
+            logger.logAccess(req, res, responseTime);
+        }
         
-        // Memory management strategy
-        if (logger.apiMetrics.totalRequests % 25 === 0) {
+        // Memory management strategy (more aggressive)
+        if (logger.apiMetrics.totalRequests % 10 === 0) {
             const memUsage = process.memoryUsage();
             const heapUsedPercent = (memUsage.heapUsed / memUsage.heapTotal) * 100;
             
-            // Force expansion of heap if usage is consistently high
-            if (heapUsedPercent > 90) {
+            // More aggressive memory management
+            if (heapUsedPercent > 80) {
                 try {
-                    // Force allocation to expand heap
-                    const expandArray = new Array(1000000).fill(null);
-                    setTimeout(() => {
-                        expandArray.length = 0; // Clear after expanding
-                        if (global.gc) {
-                            global.gc();
-                            console.log(`[MEMORY] [${new Date().toISOString()}] Forced heap expansion and GC - Memory was ${heapUsedPercent.toFixed(1)}%`);
-                        }
-                    }, 100);
+                    // Clear some metrics to free memory
+                    if (logger.apiMetrics.endpoints.size > 100) {
+                        const recentEndpoints = Array.from(logger.apiMetrics.endpoints.entries())
+                            .sort((a, b) => b[1].lastAccessed - a[1].lastAccessed)
+                            .slice(0, 50);
+                        logger.apiMetrics.endpoints = new Map(recentEndpoints);
+                    }
+                    
+                    // Force GC
+                    if (global.gc) {
+                        global.gc();
+                        console.log(`[GC] [${new Date().toISOString()}] Aggressive GC triggered - Memory was ${heapUsedPercent.toFixed(1)}%`);
+                    }
                 } catch (error) {
-                    console.warn(`[MEMORY] Could not expand heap:`, error.message);
+                    console.warn(`[MEMORY] Could not perform aggressive cleanup:`, error.message);
                 }
-            } else if (heapUsedPercent > 85 && global.gc) {
-                global.gc();
-                console.log(`[GC] [${new Date().toISOString()}] Forced GC after request - Memory was ${heapUsedPercent.toFixed(1)}%`);
             }
         }
         

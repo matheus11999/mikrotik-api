@@ -86,7 +86,11 @@
             <div class="navbar-nav ms-auto">
                 <span class="navbar-text me-3" id="lastUpdate">
                     <i class="fas fa-clock me-2"></i>
-                    Last update: Never
+                    Last update: Manual only
+                </span>
+                <span class="navbar-text me-3 text-warning" title="Auto-refresh disabled to prevent memory leaks">
+                    <i class="fas fa-pause-circle me-1"></i>
+                    Manual refresh only
                 </span>
                 <div class="btn-group me-2" role="group">
                     <button type="button" class="btn btn-outline-warning btn-sm dropdown-toggle" data-bs-toggle="dropdown" aria-expanded="false">
@@ -833,14 +837,17 @@
             }
         }
 
-        // Auto-refresh setup
+        // Auto-refresh setup (DISABLED to prevent API overload)
         function startAutoRefresh() {
-            refreshInterval = setInterval(refreshAllData, 30000); // 30 seconds
+            // Auto-refresh disabled to prevent memory leaks and API overload
+            console.log('[DASHBOARD] Auto-refresh disabled - use manual refresh button');
+            // refreshInterval = setInterval(refreshAllData, 30000); // 30 seconds
         }
 
         function stopAutoRefresh() {
             if (refreshInterval) {
                 clearInterval(refreshInterval);
+                refreshInterval = null;
             }
         }
 
