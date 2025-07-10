@@ -313,29 +313,47 @@ app.post('/api/system/gc', (req, res) => {
         const beforeMem = process.memoryUsage();
         const beforePercent = (beforeMem.heapUsed / beforeMem.heapTotal) * 100;
         
+        // Force heap expansion if usage is very high
+        if (beforePercent > 90) {
+            try {
+                console.log(`[MEMORY] Forcing heap expansion - current usage: ${beforePercent.toFixed(1)}%`);
+                const expandArray = new Array(5000000).fill(null); // Force bigger allocation
+                setTimeout(() => {
+                    expandArray.length = 0; // Clear the array
+                }, 50);
+            } catch (expandError) {
+                console.warn(`[MEMORY] Could not expand heap:`, expandError.message);
+            }
+        }
+        
         if (global.gc) {
             global.gc();
-            const afterMem = process.memoryUsage();
-            const afterPercent = (afterMem.heapUsed / afterMem.heapTotal) * 100;
             
-            res.json({
-                success: true,
-                message: 'Garbage collection executed successfully',
-                data: {
-                    before: {
-                        heapUsed: Math.round(beforeMem.heapUsed / 1024 / 1024 * 100) / 100,
-                        heapTotal: Math.round(beforeMem.heapTotal / 1024 / 1024 * 100) / 100,
-                        percentage: Math.round(beforePercent * 100) / 100
+            // Wait a moment for heap to potentially expand
+            setTimeout(() => {
+                const afterMem = process.memoryUsage();
+                const afterPercent = (afterMem.heapUsed / afterMem.heapTotal) * 100;
+                
+                res.json({
+                    success: true,
+                    message: beforePercent > 90 ? 'Heap expansion and garbage collection executed' : 'Garbage collection executed successfully',
+                    data: {
+                        before: {
+                            heapUsed: Math.round(beforeMem.heapUsed / 1024 / 1024 * 100) / 100,
+                            heapTotal: Math.round(beforeMem.heapTotal / 1024 / 1024 * 100) / 100,
+                            percentage: Math.round(beforePercent * 100) / 100
+                        },
+                        after: {
+                            heapUsed: Math.round(afterMem.heapUsed / 1024 / 1024 * 100) / 100,
+                            heapTotal: Math.round(afterMem.heapTotal / 1024 / 1024 * 100) / 100,
+                            percentage: Math.round(afterPercent * 100) / 100
+                        },
+                        saved: Math.round((beforeMem.heapUsed - afterMem.heapUsed) / 1024 / 1024 * 100) / 100,
+                        heapExpansion: Math.round((afterMem.heapTotal - beforeMem.heapTotal) / 1024 / 1024 * 100) / 100
                     },
-                    after: {
-                        heapUsed: Math.round(afterMem.heapUsed / 1024 / 1024 * 100) / 100,
-                        heapTotal: Math.round(afterMem.heapTotal / 1024 / 1024 * 100) / 100,
-                        percentage: Math.round(afterPercent * 100) / 100
-                    },
-                    saved: Math.round((beforeMem.heapUsed - afterMem.heapUsed) / 1024 / 1024 * 100) / 100
-                },
-                timestamp: new Date().toISOString()
-            });
+                    timestamp: new Date().toISOString()
+                });
+            }, 200);
         } else {
             res.status(400).json({
                 success: false,

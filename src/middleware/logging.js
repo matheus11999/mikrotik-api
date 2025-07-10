@@ -14,12 +14,27 @@ const requestLogger = (req, res, next) => {
         // Log the access
         logger.logAccess(req, res, responseTime);
         
-        // Force GC every 50 requests if memory usage is high (menos agressivo com mais RAM)
-        if (global.gc && logger.apiMetrics.totalRequests % 50 === 0) {
+        // Memory management strategy
+        if (logger.apiMetrics.totalRequests % 25 === 0) {
             const memUsage = process.memoryUsage();
             const heapUsedPercent = (memUsage.heapUsed / memUsage.heapTotal) * 100;
             
-            if (heapUsedPercent > 85) {
+            // Force expansion of heap if usage is consistently high
+            if (heapUsedPercent > 90) {
+                try {
+                    // Force allocation to expand heap
+                    const expandArray = new Array(1000000).fill(null);
+                    setTimeout(() => {
+                        expandArray.length = 0; // Clear after expanding
+                        if (global.gc) {
+                            global.gc();
+                            console.log(`[MEMORY] [${new Date().toISOString()}] Forced heap expansion and GC - Memory was ${heapUsedPercent.toFixed(1)}%`);
+                        }
+                    }, 100);
+                } catch (error) {
+                    console.warn(`[MEMORY] Could not expand heap:`, error.message);
+                }
+            } else if (heapUsedPercent > 85 && global.gc) {
                 global.gc();
                 console.log(`[GC] [${new Date().toISOString()}] Forced GC after request - Memory was ${heapUsedPercent.toFixed(1)}%`);
             }
