@@ -1,10 +1,10 @@
 // Memory Keeper - Mantém memória RAM fixa alocada permanentemente
 class MemoryKeeper {
-    constructor(targetSizeMB = 512) {
+    constructor(targetSizeMB = 256) {
         this.targetSize = targetSizeMB * 1024 * 1024; // Convert to bytes
         this.memoryBlocks = [];
         this.isActive = true;
-        this.blockSize = 50 * 1024 * 1024; // 50MB per block
+        this.blockSize = 10 * 1024 * 1024; // 10MB per block (mais conservador)
         this.maintainInterval = null;
         
         console.log(`[MEMORY-KEEPER] Initialized with target: ${targetSizeMB}MB`);
@@ -27,9 +27,9 @@ class MemoryKeeper {
                     persistent: true
                 };
                 
-                // Fill with some data to prevent optimization
+                // Fill with some data to prevent optimization (less aggressive)
                 const view = new Uint8Array(block.data);
-                for (let j = 0; j < view.length; j += 1000) {
+                for (let j = 0; j < view.length; j += 10000) { // Menos escritas
                     view[j] = Math.floor(Math.random() * 255);
                 }
                 
@@ -60,8 +60,8 @@ class MemoryKeeper {
         const currentHeapMB = currentMem.heapTotal / 1024 / 1024;
         const targetMB = this.targetSize / 1024 / 1024;
         
-        // If heap shrunk significantly, reallocate
-        if (currentHeapMB < targetMB * 0.7) {
+        // If heap shrunk significantly, reallocate (more conservative threshold)
+        if (currentHeapMB < targetMB * 0.5) {
             console.log(`[MEMORY-KEEPER] Heap shrunk to ${currentHeapMB.toFixed(2)}MB, reallocating...`);
             this.reallocateMemory();
         }
@@ -91,9 +91,9 @@ class MemoryKeeper {
                         persistent: true
                     };
                     
-                    // Fill with data
+                    // Fill with data (less aggressive)
                     const view = new Uint8Array(block.data);
-                    for (let j = 0; j < view.length; j += 1000) {
+                    for (let j = 0; j < view.length; j += 10000) { // Menos escritas
                         view[j] = (Date.now() + j) % 255;
                     }
                     
@@ -127,12 +127,12 @@ class MemoryKeeper {
     }
     
     startMaintenance() {
-        // Run maintenance every 2 minutes
+        // Run maintenance every 5 minutes (less frequent)
         this.maintainInterval = setInterval(() => {
             this.maintainMemory();
-        }, 2 * 60 * 1000);
+        }, 5 * 60 * 1000);
         
-        console.log(`[MEMORY-KEEPER] Maintenance started - checking every 2 minutes`);
+        console.log(`[MEMORY-KEEPER] Maintenance started - checking every 5 minutes`);
     }
     
     getStatus() {

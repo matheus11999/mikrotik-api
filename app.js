@@ -61,8 +61,8 @@ const { forceHeapExpansion } = require('./force-heap-expansion');
 // Import memory keeper for fixed RAM allocation
 const { MemoryKeeper } = require('./memory-keeper');
 
-// Initialize memory keeper with 1GB fixed allocation
-const memoryKeeper = new MemoryKeeper(1024);
+// Initialize memory keeper with 256MB fixed allocation (more conservative)
+const memoryKeeper = new MemoryKeeper(256);
 
 // Middleware básico
 app.use(express.json({ limit: '10mb' }));
@@ -743,20 +743,13 @@ app.listen(PORT, () => {
     console.log(`[APP] [${new Date().toISOString()}]    - Schedules: /schedules/*`);
     console.log(`[APP] [${new Date().toISOString()}]    - Files: /files/*`);
     
-    // Force initial heap expansion after startup
+    // Memory keeper handles memory allocation - no additional expansion needed
     setTimeout(() => {
-        console.log(`[APP] [${new Date().toISOString()}] 💾 Iniciando expansão inicial do heap...`);
-        const beforeMem = process.memoryUsage();
-        console.log(`[APP] [${new Date().toISOString()}] 📊 Memória inicial - Used: ${(beforeMem.heapUsed/1024/1024).toFixed(2)}MB, Total: ${(beforeMem.heapTotal/1024/1024).toFixed(2)}MB`);
-        
-        forceHeapExpansion();
-        
-        setTimeout(() => {
-            const afterMem = process.memoryUsage();
-            const usagePercent = (afterMem.heapUsed / afterMem.heapTotal) * 100;
-            console.log(`[APP] [${new Date().toISOString()}] ✅ Expansão concluída - Used: ${(afterMem.heapUsed/1024/1024).toFixed(2)}MB, Total: ${(afterMem.heapTotal/1024/1024).toFixed(2)}MB (${usagePercent.toFixed(1)}%)`);
-        }, 3000);
-    }, 2000); // Wait 2 seconds after startup
+        const memStatus = memoryKeeper.getStatus();
+        console.log(`[APP] [${new Date().toISOString()}] 💾 MemoryKeeper Status:`);
+        console.log(`[APP] [${new Date().toISOString()}] 📊 Target: ${memStatus.targetSizeMB}MB, Current Heap: ${memStatus.currentHeapMB.toFixed(2)}MB, Used: ${memStatus.usagePercent.toFixed(1)}%`);
+        console.log(`[APP] [${new Date().toISOString()}] 🔧 Blocks: ${memStatus.blocksAllocated} x ${memStatus.blockSizeMB}MB each`);
+    }, 3000); // Wait 3 seconds after startup
 });
 
 module.exports = app;
