@@ -55,6 +55,9 @@ const {
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Import heap expansion utility
+const { forceHeapExpansion } = require('./force-heap-expansion');
+
 // Middleware básico
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
@@ -313,30 +316,23 @@ app.post('/api/system/gc', (req, res) => {
         const beforeMem = process.memoryUsage();
         const beforePercent = (beforeMem.heapUsed / beforeMem.heapTotal) * 100;
         
-        // Force heap expansion if usage is very high
-        if (beforePercent > 90) {
-            try {
-                console.log(`[MEMORY] Forcing heap expansion - current usage: ${beforePercent.toFixed(1)}%`);
-                const expandArray = new Array(5000000).fill(null); // Force bigger allocation
-                setTimeout(() => {
-                    expandArray.length = 0; // Clear the array
-                }, 50);
-            } catch (expandError) {
-                console.warn(`[MEMORY] Could not expand heap:`, expandError.message);
-            }
-        }
-        
-        if (global.gc) {
-            global.gc();
+        // Use aggressive heap expansion if usage is very high
+        if (beforePercent > 85) {
+            console.log(`[MEMORY] Using aggressive heap expansion - current usage: ${beforePercent.toFixed(1)}%`);
+            forceHeapExpansion();
             
-            // Wait a moment for heap to potentially expand
+            // Wait for expansion to complete
             setTimeout(() => {
+                if (global.gc) {
+                    global.gc();
+                }
+                
                 const afterMem = process.memoryUsage();
                 const afterPercent = (afterMem.heapUsed / afterMem.heapTotal) * 100;
                 
                 res.json({
                     success: true,
-                    message: beforePercent > 90 ? 'Heap expansion and garbage collection executed' : 'Garbage collection executed successfully',
+                    message: 'Aggressive heap expansion and garbage collection executed',
                     data: {
                         before: {
                             heapUsed: Math.round(beforeMem.heapUsed / 1024 / 1024 * 100) / 100,
@@ -353,7 +349,32 @@ app.post('/api/system/gc', (req, res) => {
                     },
                     timestamp: new Date().toISOString()
                 });
-            }, 200);
+            }, 2000); // Wait longer for aggressive expansion
+        } else if (global.gc) {
+            global.gc();
+            
+            const afterMem = process.memoryUsage();
+            const afterPercent = (afterMem.heapUsed / afterMem.heapTotal) * 100;
+            
+            res.json({
+                success: true,
+                message: 'Garbage collection executed successfully',
+                data: {
+                    before: {
+                        heapUsed: Math.round(beforeMem.heapUsed / 1024 / 1024 * 100) / 100,
+                        heapTotal: Math.round(beforeMem.heapTotal / 1024 / 1024 * 100) / 100,
+                        percentage: Math.round(beforePercent * 100) / 100
+                    },
+                    after: {
+                        heapUsed: Math.round(afterMem.heapUsed / 1024 / 1024 * 100) / 100,
+                        heapTotal: Math.round(afterMem.heapTotal / 1024 / 1024 * 100) / 100,
+                        percentage: Math.round(afterPercent * 100) / 100
+                    },
+                    saved: Math.round((beforeMem.heapUsed - afterMem.heapUsed) / 1024 / 1024 * 100) / 100,
+                    heapExpansion: Math.round((afterMem.heapTotal - beforeMem.heapTotal) / 1024 / 1024 * 100) / 100
+                },
+                timestamp: new Date().toISOString()
+            });
         } else {
             res.status(400).json({
                 success: false,
@@ -711,6 +732,21 @@ app.listen(PORT, () => {
     console.log(`[APP] [${new Date().toISOString()}]    - Scripts: /scripts/*`);
     console.log(`[APP] [${new Date().toISOString()}]    - Schedules: /schedules/*`);
     console.log(`[APP] [${new Date().toISOString()}]    - Files: /files/*`);
+    
+    // Force initial heap expansion after startup
+    setTimeout(() => {
+        console.log(`[APP] [${new Date().toISOString()}] 💾 Iniciando expansão inicial do heap...`);
+        const beforeMem = process.memoryUsage();
+        console.log(`[APP] [${new Date().toISOString()}] 📊 Memória inicial - Used: ${(beforeMem.heapUsed/1024/1024).toFixed(2)}MB, Total: ${(beforeMem.heapTotal/1024/1024).toFixed(2)}MB`);
+        
+        forceHeapExpansion();
+        
+        setTimeout(() => {
+            const afterMem = process.memoryUsage();
+            const usagePercent = (afterMem.heapUsed / afterMem.heapTotal) * 100;
+            console.log(`[APP] [${new Date().toISOString()}] ✅ Expansão concluída - Used: ${(afterMem.heapUsed/1024/1024).toFixed(2)}MB, Total: ${(afterMem.heapTotal/1024/1024).toFixed(2)}MB (${usagePercent.toFixed(1)}%)`);
+        }, 3000);
+    }, 2000); // Wait 2 seconds after startup
 });
 
 module.exports = app;
