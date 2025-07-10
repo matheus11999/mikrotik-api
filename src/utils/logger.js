@@ -348,8 +348,8 @@ class Logger {
             const memUsage = process.memoryUsage();
             const heapUsedPercent = (memUsage.heapUsed / memUsage.heapTotal) * 100;
             
-            // Force garbage collection if memory usage is high
-            if (heapUsedPercent > 85) {
+            // Force garbage collection if memory usage is high (mais agressivo)
+            if (heapUsedPercent > 70) {
                 try {
                     if (global.gc) {
                         global.gc();
@@ -360,8 +360,8 @@ class Logger {
                 }
             }
             
-            // Reset metrics if they're getting too large or memory is high (mais agressivo para 256MB)
-            if (this.apiMetrics.totalRequests > 25000 || heapUsedPercent > 75) {
+            // Reset metrics if they're getting too large or memory is high (ajustado para 1GB)
+            if (this.apiMetrics.totalRequests > 100000 || heapUsedPercent > 85) {
                 this.logInfo(`Resetting metrics - Requests: ${this.apiMetrics.totalRequests}, Memory: ${heapUsedPercent.toFixed(1)}%`, 'Memory Management');
                 this.apiMetrics = {
                     totalRequests: 0,
@@ -372,11 +372,11 @@ class Logger {
                 };
             }
             
-            // Clean up old endpoint data (mais agressivo para 256MB)
-            if (this.apiMetrics.endpoints.size > 500) {
+            // Clean up old endpoint data (ajustado para alta memória)
+            if (this.apiMetrics.endpoints.size > 2000) {
                 const sortedEndpoints = Array.from(this.apiMetrics.endpoints.entries())
                     .sort((a, b) => b[1].lastAccessed - a[1].lastAccessed)
-                    .slice(0, 250); // Keep only top 250 most recent
+                    .slice(0, 1000); // Keep only top 1000 most recent
                 
                 this.apiMetrics.endpoints = new Map(sortedEndpoints);
                 this.logInfo('Cleaned up old endpoint data', 'Memory Management');

@@ -14,6 +14,17 @@ const requestLogger = (req, res, next) => {
         // Log the access
         logger.logAccess(req, res, responseTime);
         
+        // Force GC every 50 requests if memory usage is high (menos agressivo com mais RAM)
+        if (global.gc && logger.apiMetrics.totalRequests % 50 === 0) {
+            const memUsage = process.memoryUsage();
+            const heapUsedPercent = (memUsage.heapUsed / memUsage.heapTotal) * 100;
+            
+            if (heapUsedPercent > 85) {
+                global.gc();
+                console.log(`[GC] [${new Date().toISOString()}] Forced GC after request - Memory was ${heapUsedPercent.toFixed(1)}%`);
+            }
+        }
+        
         // Call original end function
         originalEnd.apply(res, args);
     };

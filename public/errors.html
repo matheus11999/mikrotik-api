@@ -116,6 +116,10 @@
                     <i class="fas fa-unlock me-2"></i>
                     Clear Blocks
                 </button>
+                <button class="btn btn-outline-info btn-sm me-2" onclick="forceGC()">
+                    <i class="fas fa-memory me-2"></i>
+                    Force GC
+                </button>
                 <button class="btn btn-outline-light btn-sm" onclick="refreshAllData()">
                     <i class="fas fa-sync-alt me-2 refresh-spinner"></i>
                     <span id="refreshText">Refresh</span>
@@ -733,6 +737,36 @@
             } catch (error) {
                 console.error('Failed to clear logs:', error);
                 alert('Failed to clear logs. Check console for details.');
+            }
+        }
+
+        // Force garbage collection
+        async function forceGC() {
+            try {
+                const response = await fetch(`${API_BASE}/api/system/gc`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    const before = data.data.before;
+                    const after = data.data.after;
+                    const saved = data.data.saved;
+                    
+                    alert(`Garbage Collection Success!\n\nBefore: ${before.heapUsed}MB / ${before.heapTotal}MB (${before.percentage}%)\nAfter: ${after.heapUsed}MB / ${after.heapTotal}MB (${after.percentage}%)\n\nMemory freed: ${saved}MB`);
+                    
+                    // Refresh to show updated memory stats
+                    setTimeout(refreshAllData, 1000);
+                } else {
+                    alert(`Error: ${data.error}`);
+                }
+            } catch (error) {
+                console.error('Failed to force GC:', error);
+                alert('Failed to force garbage collection. Check console for details.');
             }
         }
 

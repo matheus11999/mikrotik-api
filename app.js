@@ -307,6 +307,51 @@ app.post('/api/logs/clear', (req, res) => {
     }
 });
 
+// Force garbage collection endpoint
+app.post('/api/system/gc', (req, res) => {
+    try {
+        const beforeMem = process.memoryUsage();
+        const beforePercent = (beforeMem.heapUsed / beforeMem.heapTotal) * 100;
+        
+        if (global.gc) {
+            global.gc();
+            const afterMem = process.memoryUsage();
+            const afterPercent = (afterMem.heapUsed / afterMem.heapTotal) * 100;
+            
+            res.json({
+                success: true,
+                message: 'Garbage collection executed successfully',
+                data: {
+                    before: {
+                        heapUsed: Math.round(beforeMem.heapUsed / 1024 / 1024 * 100) / 100,
+                        heapTotal: Math.round(beforeMem.heapTotal / 1024 / 1024 * 100) / 100,
+                        percentage: Math.round(beforePercent * 100) / 100
+                    },
+                    after: {
+                        heapUsed: Math.round(afterMem.heapUsed / 1024 / 1024 * 100) / 100,
+                        heapTotal: Math.round(afterMem.heapTotal / 1024 / 1024 * 100) / 100,
+                        percentage: Math.round(afterPercent * 100) / 100
+                    },
+                    saved: Math.round((beforeMem.heapUsed - afterMem.heapUsed) / 1024 / 1024 * 100) / 100
+                },
+                timestamp: new Date().toISOString()
+            });
+        } else {
+            res.status(400).json({
+                success: false,
+                error: 'Garbage collection not available (run with --expose-gc)',
+                timestamp: new Date().toISOString()
+            });
+        }
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            error: 'Failed to execute garbage collection',
+            timestamp: new Date().toISOString()
+        });
+    }
+});
+
 // Teste de conexão geral
 app.post('/test-connection', validateConnectionParams, async (req, res) => {
     try {
