@@ -6,19 +6,16 @@ echo "🚀 Iniciando MikroTik API com configurações de alta memória..."
 
 # Configurações de memória ampliadas
 MAX_HEAP=1024
-SEMI_SPACE=128  
-EXECUTABLE=512
+SEMI_SPACE=128
 
 echo "💾 Configurações de memória:"
 echo "   - Heap Principal: ${MAX_HEAP}MB"
 echo "   - Semi Space: ${SEMI_SPACE}MB" 
-echo "   - Executable: ${EXECUTABLE}MB"
 echo "   - Total estimado: ~${MAX_HEAP}MB de RAM"
 
 echo "⚙️  Configurações do Node.js:"
 echo "   - Max Old Space Size: ${MAX_HEAP}MB"
 echo "   - Max Semi Space Size: ${SEMI_SPACE}MB"
-echo "   - Max Executable Size: ${EXECUTABLE}MB"
 echo "   - Garbage Collection: Habilitado"
 echo "   - Memory Optimization: Desabilitado (para usar mais RAM)"
 echo ""
@@ -33,7 +30,6 @@ echo "▶️  Iniciando servidor..."
 node \
   --max-old-space-size=$MAX_HEAP \
   --max-semi-space-size=$SEMI_SPACE \
-  --max-executable-size=$EXECUTABLE \
   --expose-gc \
   app.js
 
