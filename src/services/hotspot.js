@@ -28,7 +28,7 @@ class HotspotService {
                 user: username,
                 password: password,
                 port: port,
-                timeout: 10000
+                timeout: 5000 // 5s timeout para autenticação rápida
             });
 
             await conn.connect();

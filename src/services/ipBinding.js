@@ -70,7 +70,7 @@ class IpBindingService {
                 user: username,
                 password: password,
                 port: port,
-                timeout: 10000
+                timeout: 5000 // 5s timeout
             });
 
             await conn.connect();

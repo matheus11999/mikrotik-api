@@ -93,7 +93,14 @@ class SystemController {
             });
         } catch (error) {
             console.error(`[SYSTEM-CONTROLLER] [${new Date().toISOString()}] Erro ao obter recursos:`, error.message);
-            res.status(500).json({
+            // Mapear mensagens conhecidas para status
+            let statusCode = 500;
+            if (error.message.includes('Usuário ou senha incorretos')) {
+                statusCode = 401; // Unauthorized
+            } else if (error.message.includes('Dispositivo offline')) {
+                statusCode = 503; // Service Unavailable
+            }
+            res.status(statusCode).json({
                 success: false,
                 error: error.message,
                 timestamp: new Date().toISOString()

@@ -104,14 +104,14 @@ class ConnectionManager {
                 
                 console.warn(`[CONNECTION-MANAGER] [${new Date().toISOString()}] ❌ Tentativa ${attempt} falhou para ${host}:${port}: ${error.message} (Tipo: ${errorType})`);
 
-                // Se é erro de autenticação, não tentar novamente
+                // Parar imediatamente para alguns erros definitivos
                 if (errorType === 'authentication') {
                     console.error(`[CONNECTION-MANAGER] [${new Date().toISOString()}] 🔐 Erro de autenticação detectado - interrompendo tentativas`);
                     throw this.createAuthenticationError(error);
                 }
 
-                // Se é erro de host/rede irrecuperável, não tentar novamente
-                if (errorType === 'host_unreachable') {
+                // Se o host está offline ou houve timeout, não faz sentido continuar
+                if (errorType === 'host_unreachable' || errorType === 'timeout') {
                     console.error(`[CONNECTION-MANAGER] [${new Date().toISOString()}] 🌐 Host inacessível - interrompendo tentativas`);
                     throw this.createNetworkError(error);
                 }
@@ -143,7 +143,7 @@ class ConnectionManager {
             user: username,
             password: password,
             port: port,
-            timeout: 15000, // 15 segundos de timeout
+            timeout: 5000, // 5 segundos de timeout (falha rápida se dispositivo estiver offline)
             keepalive: true
         });
 

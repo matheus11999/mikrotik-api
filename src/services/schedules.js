@@ -28,7 +28,7 @@ class SchedulesService {
                 user: username,
                 password: password,
                 port: port,
-                timeout: 10000
+                timeout: 5000 // timeout reduzido para 5 s
             });
 
             await conn.connect();

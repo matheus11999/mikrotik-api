@@ -28,7 +28,7 @@ class SystemService {
                 user: username,
                 password: password,
                 port: port,
-                timeout: 10000
+                timeout: 5000 // timeout reduzido para 5 s
             });
 
             await conn.connect();
@@ -38,8 +38,18 @@ class SystemService {
             return conn;
             
         } catch (error) {
+            const msg = error.message.toLowerCase();
+            let friendly = 'Falha na conexão';
+            if (msg.includes('authentication') || msg.includes('login failed') || msg.includes('invalid user') || msg.includes('bad user') || msg.includes('access denied')) {
+                friendly = 'Usuário ou senha incorretos';
+            } else if (msg.includes('timeout') || msg.includes('econnrefused') || msg.includes('connection refused') || msg.includes('host unreachable')) {
+                friendly = 'Dispositivo offline ou IP/porta inacessível';
+            }
+
             console.error(`[SYSTEM-SERVICE] [${new Date().toISOString()}] Falha na conexão com ${host}:${port}:`, error.message);
-            throw new Error(`Falha na conexão: ${error.message}`);
+            const enhancedError = new Error(friendly);
+            enhancedError.original = error;
+            throw enhancedError;
         }
     }
 

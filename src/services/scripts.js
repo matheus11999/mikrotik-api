@@ -28,7 +28,7 @@ class ScriptsService {
                 user: username,
                 password: password,
                 port: port,
-                timeout: 10000
+                timeout: 5000 // 5 segundos de timeout para autenticação rápida
             });
 
             await conn.connect();
