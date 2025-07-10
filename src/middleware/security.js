@@ -215,6 +215,61 @@ const advancedSanitization = (req, res, next) => {
     next();
 };
 
+// Função para limpar bloqueios de IP
+const clearIPBlocks = (ip = null) => {
+    if (ip) {
+        // Limpar IP específico
+        if (securityCache.has(ip)) {
+            securityCache.delete(ip);
+            console.log(`[SECURITY] [${new Date().toISOString()}] Cleared blocks for IP: ${ip}`);
+            return { cleared: [ip] };
+        }
+        return { cleared: [] };
+    } else {
+        // Limpar todos os bloqueios
+        const clearedIPs = [];
+        for (const [ipAddress, data] of securityCache.entries()) {
+            if (data.blocked) {
+                clearedIPs.push(ipAddress);
+            }
+        }
+        securityCache.clear();
+        console.log(`[SECURITY] [${new Date().toISOString()}] Cleared all IP blocks. Total: ${clearedIPs.length}`);
+        return { cleared: clearedIPs };
+    }
+};
+
+// Função para obter status dos bloqueios
+const getSecurityStatus = () => {
+    const now = Date.now();
+    const blockedIPs = [];
+    const monitoredIPs = [];
+    
+    for (const [ip, data] of securityCache.entries()) {
+        if (data.blocked && now < data.blockUntil) {
+            blockedIPs.push({
+                ip,
+                attempts: data.attempts,
+                blockedSince: new Date(data.blockUntil - (30 * 60 * 1000)).toISOString(),
+                remainingTime: Math.ceil((data.blockUntil - now) / 1000)
+            });
+        } else if (data.attempts > 0) {
+            monitoredIPs.push({
+                ip,
+                attempts: data.attempts,
+                firstAttempt: new Date(data.firstAttempt).toISOString()
+            });
+        }
+    }
+    
+    return {
+        blockedIPs,
+        monitoredIPs,
+        totalBlocked: blockedIPs.length,
+        totalMonitored: monitoredIPs.length
+    };
+};
+
 // Limpeza periódica do cache de segurança
 setInterval(() => {
     const now = Date.now();
@@ -243,5 +298,7 @@ module.exports = {
     logSecurityEvent,
     securityHeaders,
     validateDataIntegrity,
-    advancedSanitization
+    advancedSanitization,
+    clearIPBlocks,
+    getSecurityStatus
 };

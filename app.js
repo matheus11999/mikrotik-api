@@ -34,7 +34,9 @@ const {
     securityLogger, 
     bruteForceProtection, 
     securityHeaders, 
-    advancedSanitization 
+    advancedSanitization,
+    clearIPBlocks,
+    getSecurityStatus
 } = require('./src/middleware/security');
 
 // Logging middleware
@@ -89,7 +91,7 @@ app.use(mikrotikLogger);
 
 // Middleware de autenticação (aplicado a todas as rotas exceto health check)
 app.use((req, res, next) => {
-    // Pular autenticação para health check, monitoring, e arquivos estáticos
+    // Pular autenticação para health check, monitoring, arquivos estáticos e dashboard
     if (req.path === '/health' || 
         req.path.startsWith('/css') || 
         req.path.startsWith('/js') || 
@@ -97,7 +99,11 @@ app.use((req, res, next) => {
         req.path === '/errors.html' ||
         req.path.startsWith('/api/logs') ||
         req.path.startsWith('/api/system/health') ||
-        req.path.startsWith('/favicon')) {
+        req.path.startsWith('/api/security') ||
+        req.path.startsWith('/favicon') ||
+        req.path === '/errors' ||
+        req.path.includes('monitoring') ||
+        req.path.includes('dashboard')) {
         return next();
     }
     authenticateApiToken(req, res, next);
@@ -236,6 +242,44 @@ app.get('/api/system/health', (req, res) => {
         res.status(500).json({
             success: false,
             error: 'Failed to get system health',
+            timestamp: new Date().toISOString()
+        });
+    }
+});
+
+// Security management endpoints
+app.get('/api/security/status', (req, res) => {
+    try {
+        const status = getSecurityStatus();
+        res.json({
+            success: true,
+            data: status,
+            timestamp: new Date().toISOString()
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            error: 'Failed to get security status',
+            timestamp: new Date().toISOString()
+        });
+    }
+});
+
+app.post('/api/security/clear-blocks', (req, res) => {
+    try {
+        const { ip } = req.body;
+        const result = clearIPBlocks(ip);
+        
+        res.json({
+            success: true,
+            message: ip ? `Cleared blocks for IP: ${ip}` : 'Cleared all IP blocks',
+            data: result,
+            timestamp: new Date().toISOString()
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            error: 'Failed to clear IP blocks',
             timestamp: new Date().toISOString()
         });
     }
