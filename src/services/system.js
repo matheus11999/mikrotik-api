@@ -153,7 +153,13 @@ class SystemService {
             
             const resource = await conn.write('/system/resource/print');
             
-            console.log(`[SYSTEM-SERVICE] [${new Date().toISOString()}] Recursos obtidos com sucesso`);
+            console.log(`[SYSTEM-SERVICE] [${new Date().toISOString()}] Recursos obtidos:`, resource[0]);
+            console.log(`[SYSTEM-SERVICE] [${new Date().toISOString()}] CPU Load:`, resource[0]?.['cpu-load']);
+            console.log(`[SYSTEM-SERVICE] [${new Date().toISOString()}] Total Memory:`, resource[0]?.['total-memory']);
+            console.log(`[SYSTEM-SERVICE] [${new Date().toISOString()}] Free Memory:`, resource[0]?.['free-memory']);
+            console.log(`[SYSTEM-SERVICE] [${new Date().toISOString()}] Total HDD:`, resource[0]?.['total-hdd-space']);
+            console.log(`[SYSTEM-SERVICE] [${new Date().toISOString()}] Free HDD:`, resource[0]?.['free-hdd-space']);
+            
             return resource[0] || {};
             
         } catch (error) {
