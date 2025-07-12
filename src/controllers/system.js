@@ -561,9 +561,27 @@ class SystemController {
             res.json(response);
         } catch (error) {
             console.error(`[SYSTEM-CONTROLLER] [${new Date().toISOString()}] Erro ao obter informações essenciais:`, error.message);
-            res.status(500).json({
+            
+            // Melhor diferenciação de tipos de erro
+            let statusCode = 500;
+            let errorType = 'unknown';
+            const errorMessage = error.message || 'Erro desconhecido';
+            
+            if (errorMessage.includes('timeout') || errorMessage.includes('Connection timeout')) {
+                statusCode = 408; // Request Timeout
+                errorType = 'timeout';
+            } else if (errorMessage.includes('incorretos') || errorMessage.includes('authentication') || errorMessage.includes('login failed')) {
+                statusCode = 401; // Unauthorized
+                errorType = 'auth_failed';
+            } else if (errorMessage.includes('offline') || errorMessage.includes('unreachable') || errorMessage.includes('refused')) {
+                statusCode = 503; // Service Unavailable
+                errorType = 'device_offline';
+            }
+            
+            res.status(statusCode).json({
                 success: false,
-                error: error.message,
+                error: errorMessage,
+                errorType,
                 timestamp: new Date().toISOString()
             });
         }
