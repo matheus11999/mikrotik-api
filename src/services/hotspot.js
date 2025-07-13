@@ -331,9 +331,13 @@ class HotspotService {
     async createProfile(host, username, password, profileData, port = 8728) {
         try {
             const conn = await this.createConnection(host, username, password, port);
-            console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Criando profile do hotspot: ${profileData.name}`);
+            console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] ===== CRIANDO HOTSPOT USER PROFILE =====`);
+            console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Host: ${host}:${port}`);
+            console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Profile name: ${profileData.name}`);
+            console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Profile data:`, JSON.stringify(profileData, null, 2));
             
             const params = [`=name=${profileData.name}`];
+            console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] 🔄 Iniciando construção de parâmetros...`);
             
             // Timeouts e limites de tempo
             if (profileData.idle_timeout) params.push(`=idle-timeout=${profileData.idle_timeout}`);
@@ -377,14 +381,37 @@ class HotspotService {
             if (profileData.incoming_packet_mark) params.push(`=incoming-packet-mark=${profileData.incoming_packet_mark}`);
             if (profileData.outgoing_packet_mark) params.push(`=outgoing-packet-mark=${profileData.outgoing_packet_mark}`);
             
-            console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Parâmetros do profile:`, params);
+            console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] 📋 Parâmetros finais do profile:`, params);
+            console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] 🚀 Executando comando: /ip/hotspot/user/profile/add`);
             
             const result = await conn.write('/ip/hotspot/user/profile/add', params);
-            console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Profile criado com sucesso: ${profileData.name}`);
+            console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] ✅ Comando executado. Resultado:`, result);
+            
+            // Verificar se o profile foi criado
+            try {
+                const createdProfiles = await conn.write('/ip/hotspot/user/profile/print', [`=name=${profileData.name}`]);
+                if (createdProfiles.length > 0) {
+                    console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] ✅ HOTSPOT USER PROFILE CRIADO COM SUCESSO:`, {
+                        id: createdProfiles[0]['.id'],
+                        name: createdProfiles[0].name,
+                        sessionTimeout: createdProfiles[0]['session-timeout'],
+                        idleTimeout: createdProfiles[0]['idle-timeout']
+                    });
+                } else {
+                    console.warn(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] ⚠️ Profile criado mas não encontrado na verificação`);
+                }
+            } catch (verifyError) {
+                console.warn(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] ⚠️ Erro ao verificar profile criado:`, verifyError.message);
+            }
             
             return result;
         } catch (error) {
-            console.error(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Erro ao criar profile:`, error.message);
+            console.error(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] ❌ ERRO GERAL ao criar profile:`);
+            console.error(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Host: ${host}:${port}`);
+            console.error(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Profile name: ${profileData.name}`);
+            console.error(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Profile Data:`, JSON.stringify(profileData, null, 2));
+            console.error(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Erro: ${error.message}`);
+            console.error(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Stack trace:`, error.stack);
             throw error;
         }
     }
@@ -392,10 +419,31 @@ class HotspotService {
     async updateProfile(host, username, password, profileId, profileData, port = 8728) {
         try {
             const conn = await this.createConnection(host, username, password, port);
-            console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Atualizando profile do hotspot ID: ${profileId}`);
+            console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] ===== ATUALIZANDO HOTSPOT USER PROFILE =====`);
+            console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Host: ${host}:${port}`);
+            console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Profile ID: ${profileId}`);
             console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Profile data recebido:`, JSON.stringify(profileData, null, 2));
             
+            // Verificar se o profile existe antes de atualizar
+            try {
+                const existingProfiles = await conn.write('/ip/hotspot/user/profile/print', [`=.id=${profileId}`]);
+                if (existingProfiles.length === 0) {
+                    console.error(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] ❌ Profile não encontrado: ${profileId}`);
+                    throw new Error(`Hotspot user profile com ID ${profileId} não encontrado`);
+                }
+                console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] ✅ Profile encontrado:`, {
+                    id: existingProfiles[0]['.id'],
+                    name: existingProfiles[0].name,
+                    sessionTimeout: existingProfiles[0]['session-timeout'],
+                    idleTimeout: existingProfiles[0]['idle-timeout']
+                });
+            } catch (checkError) {
+                console.error(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] ❌ Erro ao verificar profile existente:`, checkError.message);
+                throw checkError;
+            }
+            
             const params = [`=.id=${profileId}`];
+            console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] 🔄 Iniciando construção de parâmetros...`);
             
             // Campos básicos
             if (profileData.name) params.push(`=name=${profileData.name}`);
@@ -460,14 +508,43 @@ class HotspotService {
             if (profileData.incoming_packet_mark !== undefined) params.push(`=incoming-packet-mark=${profileData.incoming_packet_mark}`);
             if (profileData.outgoing_packet_mark !== undefined) params.push(`=outgoing-packet-mark=${profileData.outgoing_packet_mark}`);
             
-            console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Parâmetros de atualização:`, params);
+            console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] 📋 Parâmetros finais de atualização:`, params);
+            console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] 🚀 Executando comando: /ip/hotspot/user/profile/set`);
             
             const result = await conn.write('/ip/hotspot/user/profile/set', params);
-            console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Profile atualizado com sucesso ID: ${profileId}`);
+            console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] ✅ Comando executado. Resultado:`, result);
+            
+            // Verificar se a atualização foi aplicada corretamente
+            try {
+                const updatedProfiles = await conn.write('/ip/hotspot/user/profile/print', [`=.id=${profileId}`]);
+                if (updatedProfiles.length > 0) {
+                    const updated = updatedProfiles[0];
+                    console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] 🔍 Estado após atualização:`, {
+                        id: updated['.id'],
+                        name: updated.name,
+                        sessionTimeout: updated['session-timeout'],
+                        idleTimeout: updated['idle-timeout'],
+                        sharedUsers: updated['shared-users'],
+                        rateLimitRx: updated['rate-limit-rx'],
+                        rateLimitTx: updated['rate-limit-tx']
+                    });
+                    
+                    console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] ✅ HOTSPOT USER PROFILE ATUALIZADO COM SUCESSO: ${profileId}`);
+                } else {
+                    console.error(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] ❌ Profile não encontrado após atualização!`);
+                }
+            } catch (verifyError) {
+                console.warn(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] ⚠️ Erro ao verificar atualização:`, verifyError.message);
+            }
             
             return result;
         } catch (error) {
-            console.error(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Erro ao atualizar profile:`, error.message);
+            console.error(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] ❌ ERRO GERAL ao atualizar profile:`);
+            console.error(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Host: ${host}:${port}`);
+            console.error(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Profile ID: ${profileId}`);
+            console.error(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Profile Data:`, JSON.stringify(profileData, null, 2));
+            console.error(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Erro: ${error.message}`);
+            console.error(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Stack trace:`, error.stack);
             throw error;
         }
     }
@@ -475,14 +552,49 @@ class HotspotService {
     async deleteProfile(host, username, password, profileId, port = 8728) {
         try {
             const conn = await this.createConnection(host, username, password, port);
-            console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Removendo profile do hotspot ID: ${profileId}`);
+            console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] ===== REMOVENDO HOTSPOT USER PROFILE =====`);
+            console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Host: ${host}:${port}`);
+            console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Profile ID: ${profileId}`);
             
+            // Verificar se o profile existe antes de remover
+            try {
+                const existingProfiles = await conn.write('/ip/hotspot/user/profile/print', [`=.id=${profileId}`]);
+                if (existingProfiles.length === 0) {
+                    console.error(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] ❌ Profile não encontrado: ${profileId}`);
+                    throw new Error(`Hotspot user profile com ID ${profileId} não encontrado`);
+                }
+                console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] ✅ Profile encontrado para remoção:`, {
+                    id: existingProfiles[0]['.id'],
+                    name: existingProfiles[0].name
+                });
+            } catch (checkError) {
+                console.error(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] ❌ Erro ao verificar profile para remoção:`, checkError.message);
+                throw checkError;
+            }
+            
+            console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] 🚀 Executando comando: /ip/hotspot/user/profile/remove`);
             const result = await conn.write('/ip/hotspot/user/profile/remove', [`=.id=${profileId}`]);
-            console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Profile removido com sucesso ID: ${profileId}`);
+            console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] ✅ Comando executado. Resultado:`, result);
+            
+            // Verificar se foi removido
+            try {
+                const remainingProfiles = await conn.write('/ip/hotspot/user/profile/print', [`=.id=${profileId}`]);
+                if (remainingProfiles.length === 0) {
+                    console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] ✅ HOTSPOT USER PROFILE REMOVIDO COM SUCESSO: ${profileId}`);
+                } else {
+                    console.warn(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] ⚠️ Profile ainda existe após remoção`);
+                }
+            } catch (verifyError) {
+                console.warn(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] ⚠️ Erro ao verificar remoção:`, verifyError.message);
+            }
             
             return result;
         } catch (error) {
-            console.error(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Erro ao remover profile:`, error.message);
+            console.error(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] ❌ ERRO GERAL ao remover profile:`);
+            console.error(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Host: ${host}:${port}`);
+            console.error(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Profile ID: ${profileId}`);
+            console.error(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Erro: ${error.message}`);
+            console.error(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Stack trace:`, error.stack);
             throw error;
         }
     }
