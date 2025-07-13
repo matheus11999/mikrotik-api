@@ -5,6 +5,55 @@ class HotspotService {
         this.connections = new Map();
     }
 
+    // Formatador de timeout para MikroTik
+    formatTimeout(value) {
+        if (!value || value === '' || value === '0' || value === 'none') {
+            return 'none';
+        }
+        
+        // Se já é um formato válido do MikroTik (ex: 1h, 30m, 1d)
+        if (typeof value === 'string' && /^\d+[smhd]$/.test(value)) {
+            console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] ✅ Timeout já formatado: ${value}`);
+            return value;
+        }
+        
+        // Se é número em segundos, converter para formato MikroTik
+        const numValue = parseInt(value);
+        if (!isNaN(numValue) && numValue > 0) {
+            if (numValue >= 86400) { // 1 dia ou mais
+                const days = Math.floor(numValue / 86400);
+                const remainder = numValue % 86400;
+                if (remainder === 0) {
+                    console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] 🔄 Convertendo ${value}s para ${days}d`);
+                    return `${days}d`;
+                }
+            }
+            if (numValue >= 3600) { // 1 hora ou mais
+                const hours = Math.floor(numValue / 3600);
+                const remainder = numValue % 3600;
+                if (remainder === 0) {
+                    console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] 🔄 Convertendo ${value}s para ${hours}h`);
+                    return `${hours}h`;
+                }
+            }
+            if (numValue >= 60) { // 1 minuto ou mais
+                const minutes = Math.floor(numValue / 60);
+                const remainder = numValue % 60;
+                if (remainder === 0) {
+                    console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] 🔄 Convertendo ${value}s para ${minutes}m`);
+                    return `${minutes}m`;
+                }
+            }
+            // Segundos
+            console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] 🔄 Mantendo ${value}s como segundos`);
+            return `${numValue}s`;
+        }
+        
+        // Se valor inválido, retornar 'none'
+        console.warn(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] ⚠️ Valor de timeout inválido '${value}', usando 'none'`);
+        return 'none';
+    }
+
     async createConnection(host, username, password, port = 8728) {
         const connectionKey = `${host}:${port}`;
         
@@ -339,16 +388,45 @@ class HotspotService {
             const params = [`=name=${profileData.name}`];
             console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] 🔄 Iniciando construção de parâmetros...`);
             
-            // Timeouts e limites de tempo
-            if (profileData.idle_timeout) params.push(`=idle-timeout=${profileData.idle_timeout}`);
-            if (profileData.keepalive_timeout) params.push(`=keepalive-timeout=${profileData.keepalive_timeout}`);
+            // Timeouts e limites de tempo - com formatação correta para MikroTik
+            
+            // Session Timeout
+            const sessionTimeoutValue = profileData['session-timeout'] || profileData.session_timeout;
+            if (sessionTimeoutValue) {
+                const formattedSessionTimeout = this.formatTimeout(sessionTimeoutValue);
+                console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] 🕐 Session Timeout: ${sessionTimeoutValue} → ${formattedSessionTimeout}`);
+                params.push(`=session-timeout=${formattedSessionTimeout}`);
+            }
+            
+            // Idle Timeout
+            const idleTimeoutValue = profileData['idle-timeout'] || profileData.idle_timeout;
+            if (idleTimeoutValue) {
+                const formattedIdleTimeout = this.formatTimeout(idleTimeoutValue);
+                console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] ⏰ Idle Timeout: ${idleTimeoutValue} → ${formattedIdleTimeout}`);
+                params.push(`=idle-timeout=${formattedIdleTimeout}`);
+            }
+            
+            // Keepalive Timeout
+            const keepaliveTimeoutValue = profileData['keepalive-timeout'] || profileData.keepalive_timeout;
+            if (keepaliveTimeoutValue) {
+                const formattedKeepaliveTimeout = this.formatTimeout(keepaliveTimeoutValue);
+                console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] 💓 Keepalive Timeout: ${keepaliveTimeoutValue} → ${formattedKeepaliveTimeout}`);
+                params.push(`=keepalive-timeout=${formattedKeepaliveTimeout}`);
+            }
+            
+            // MAC Cookie Timeout
+            const macCookieTimeoutValue = profileData['mac-cookie-timeout'] || profileData.mac_cookie_timeout;
+            if (macCookieTimeoutValue) {
+                const formattedMacCookieTimeout = this.formatTimeout(macCookieTimeoutValue);
+                console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] 🍪 MAC Cookie Timeout: ${macCookieTimeoutValue} → ${formattedMacCookieTimeout}`);
+                params.push(`=mac-cookie-timeout=${formattedMacCookieTimeout}`);
+            }
+            
             if (profileData.status_autorefresh) params.push(`=status-autorefresh=${profileData.status_autorefresh}`);
-            if (profileData.session_timeout) params.push(`=session-timeout=${profileData.session_timeout}`);
             
             // Controle de usuários e cookies
             if (profileData.shared_users) params.push(`=shared-users=${profileData.shared_users}`);
             if (profileData.add_mac_cookie !== undefined) params.push(`=add-mac-cookie=${profileData.add_mac_cookie}`);
-            if (profileData.mac_cookie_timeout) params.push(`=mac-cookie-timeout=${profileData.mac_cookie_timeout}`);
             
             // Velocidade e rate limiting
             if (profileData.rate_limit) params.push(`=rate-limit=${profileData.rate_limit}`);
@@ -448,29 +526,45 @@ class HotspotService {
             // Campos básicos
             if (profileData.name) params.push(`=name=${profileData.name}`);
             
-            // Timeouts e limites de tempo
-            if (profileData.idle_timeout !== undefined) params.push(`=idle-timeout=${profileData.idle_timeout}`);
-            // Também verificar formato com hífen (enviado pelo backend)
-            if (profileData['idle-timeout'] !== undefined) {
-                console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Processando idle-timeout: ${profileData['idle-timeout']}`);
-                params.push(`=idle-timeout=${profileData['idle-timeout']}`);
+            // Timeouts e limites de tempo - com formatação correta para MikroTik
+            
+            // Session Timeout
+            const sessionTimeoutValue = profileData['session-timeout'] || profileData.session_timeout;
+            if (sessionTimeoutValue !== undefined) {
+                const formattedSessionTimeout = this.formatTimeout(sessionTimeoutValue);
+                console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] 🕐 Session Timeout: ${sessionTimeoutValue} → ${formattedSessionTimeout}`);
+                params.push(`=session-timeout=${formattedSessionTimeout}`);
             }
-            if (profileData.keepalive_timeout !== undefined) params.push(`=keepalive-timeout=${profileData.keepalive_timeout}`);
+            
+            // Idle Timeout
+            const idleTimeoutValue = profileData['idle-timeout'] || profileData.idle_timeout;
+            if (idleTimeoutValue !== undefined) {
+                const formattedIdleTimeout = this.formatTimeout(idleTimeoutValue);
+                console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] ⏰ Idle Timeout: ${idleTimeoutValue} → ${formattedIdleTimeout}`);
+                params.push(`=idle-timeout=${formattedIdleTimeout}`);
+            }
+            
+            // Keepalive Timeout
+            const keepaliveTimeoutValue = profileData['keepalive-timeout'] || profileData.keepalive_timeout;
+            if (keepaliveTimeoutValue !== undefined) {
+                const formattedKeepaliveTimeout = this.formatTimeout(keepaliveTimeoutValue);
+                console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] 💓 Keepalive Timeout: ${keepaliveTimeoutValue} → ${formattedKeepaliveTimeout}`);
+                params.push(`=keepalive-timeout=${formattedKeepaliveTimeout}`);
+            }
+            
+            // MAC Cookie Timeout
+            const macCookieTimeoutValue = profileData['mac-cookie-timeout'] || profileData.mac_cookie_timeout;
+            if (macCookieTimeoutValue !== undefined) {
+                const formattedMacCookieTimeout = this.formatTimeout(macCookieTimeoutValue);
+                console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] 🍪 MAC Cookie Timeout: ${macCookieTimeoutValue} → ${formattedMacCookieTimeout}`);
+                params.push(`=mac-cookie-timeout=${formattedMacCookieTimeout}`);
+            }
+            
             if (profileData.status_autorefresh !== undefined) params.push(`=status-autorefresh=${profileData.status_autorefresh}`);
-            if (profileData.session_timeout !== undefined) {
-                console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Processando session_timeout: ${profileData.session_timeout}`);
-                params.push(`=session-timeout=${profileData.session_timeout}`);
-            }
-            // Também verificar formato com hífen (enviado pelo backend)
-            if (profileData['session-timeout'] !== undefined) {
-                console.log(`[HOTSPOT-SERVICE] [${new Date().toISOString()}] Processando session-timeout: ${profileData['session-timeout']}`);
-                params.push(`=session-timeout=${profileData['session-timeout']}`);
-            }
             
             // Controle de usuários e cookies
             if (profileData.shared_users !== undefined) params.push(`=shared-users=${profileData.shared_users}`);
             if (profileData.add_mac_cookie !== undefined) params.push(`=add-mac-cookie=${profileData.add_mac_cookie}`);
-            if (profileData.mac_cookie_timeout !== undefined) params.push(`=mac-cookie-timeout=${profileData.mac_cookie_timeout}`);
             
             // Velocidade e rate limiting
             if (profileData.rate_limit !== undefined) params.push(`=rate-limit=${profileData.rate_limit}`);
